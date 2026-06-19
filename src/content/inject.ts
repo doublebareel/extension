@@ -1,5 +1,9 @@
 import type { Highlight } from "../shared/types";
-import { normalizeUrl, detectBackgroundTheme, type Theme } from "../shared/utils";
+import {
+  normalizeUrl,
+  detectBackgroundTheme,
+  type Theme,
+} from "../shared/utils";
 
 interface RenderToolbarCallback {
   (x: number, y: number, theme: Theme, highlightId: string | null): void;
@@ -26,41 +30,56 @@ const scheduleHide = (hideToolbar: HideToolbarCallback) => {
   }, 120);
 };
 
-const getSelectionToolbarPosition = (): { x: number; y: number; theme: Theme; highlightId: string | null } | null =>
-{
+const getSelectionToolbarPosition = (): {
+  x: number;
+  y: number;
+  theme: Theme;
+  highlightId: string | null;
+} | null => {
   const selection = window.getSelection();
 
-  if (!selection || selection.isCollapsed || selection.rangeCount === 0 || selection.toString().trim() === "")
-  {
+  if (
+    !selection ||
+    selection.isCollapsed ||
+    selection.rangeCount === 0 ||
+    selection.toString().trim() === ""
+  ) {
     return null;
   }
 
   const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
 
-  if (rect.width === 0 && rect.height === 0)
-  {
+  if (rect.width === 0 && rect.height === 0) {
     return null;
   }
 
   // Sample the element that actually holds the selected text so we read the
   // background behind the selection (e.g. a dark code block on a light page).
   const anchor = range.commonAncestorContainer;
-  const element = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element);
+  const element =
+    anchor.nodeType === Node.TEXT_NODE
+      ? anchor.parentElement
+      : (anchor as Element);
   const theme = detectBackgroundTheme(element);
 
   // Only worth offering "Delete" when the selection sits inside an existing
   // highlight, so the toolbar can hide the button otherwise.
-  const highlightId = element?.closest("span[data-highlight-id]")?.getAttribute("data-highlight-id") ?? null;
+  const highlightId =
+    element
+      ?.closest("span[data-highlight-id]")
+      ?.getAttribute("data-highlight-id") ?? null;
 
   return { x: rect.left + rect.width / 2, y: rect.top, theme, highlightId };
 };
 
-const handleSelectionChange = (renderToolbar: RenderToolbarCallback, hideToolbar: HideToolbarCallback) => {
+const handleSelectionChange = (
+  renderToolbar: RenderToolbarCallback,
+  hideToolbar: HideToolbarCallback,
+) => {
   const position = getSelectionToolbarPosition();
 
-  if (!position)
-  {
+  if (!position) {
     scheduleHide(hideToolbar);
     return;
   }
@@ -72,43 +91,57 @@ const handleSelectionChange = (renderToolbar: RenderToolbarCallback, hideToolbar
 const handleReposition = (renderToolbar: RenderToolbarCallback) => {
   const position = getSelectionToolbarPosition();
 
-  if (!position)
-  {
+  if (!position) {
     return;
   }
 
   renderToolbar(position.x, position.y, position.theme, position.highlightId);
 };
 
-export const setupHighlighter = (renderToolbar: RenderToolbarCallback, hideToolbar: HideToolbarCallback) => {
+export const setupHighlighter = (
+  renderToolbar: RenderToolbarCallback,
+  hideToolbar: HideToolbarCallback,
+) => {
   document.addEventListener("mouseup", () => {
     handleSelectionChange(renderToolbar, hideToolbar);
     const selection = document.getSelection();
-    if (selection && selection.rangeCount !== 0 && selection.toString() !== "") {
+    if (
+      selection &&
+      selection.rangeCount !== 0 &&
+      selection.toString() !== ""
+    ) {
       globalSelection = selection;
     }
   });
 
-  document.addEventListener("scroll", () => {
-    handleReposition(renderToolbar);
-  },{ capture: true, passive: true });
+  document.addEventListener(
+    "scroll",
+    () => {
+      handleReposition(renderToolbar);
+    },
+    { capture: true, passive: true },
+  );
 };
 
-
-const getTextNodesInRange = (range: Range): Array<{ node: Text; startOffset: number; endOffset: number }> => {
-  const ancestor = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
-    ? range.commonAncestorContainer.parentElement!
-    : range.commonAncestorContainer as Element;
+const getTextNodesInRange = (
+  range: Range,
+): Array<{ node: Text; startOffset: number; endOffset: number }> => {
+  const ancestor =
+    range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentElement!
+      : (range.commonAncestorContainer as Element);
 
   const walker = document.createTreeWalker(ancestor, NodeFilter.SHOW_TEXT);
-  const result: Array<{ node: Text; startOffset: number; endOffset: number }> = [];
+  const result: Array<{ node: Text; startOffset: number; endOffset: number }> =
+    [];
 
   let node: Text;
   while ((node = walker.nextNode() as Text)) {
     if (!range.intersectsNode(node)) continue;
 
     const startOffset = node === range.startContainer ? range.startOffset : 0;
-    const endOffset = node === range.endContainer ? range.endOffset : node.length;
+    const endOffset =
+      node === range.endContainer ? range.endOffset : node.length;
 
     if (startOffset === endOffset) continue;
 
@@ -135,7 +168,7 @@ const extractContext = (range: Range): string => {
 const wrapTextNodes = (
   nodes: Array<{ node: Text; startOffset: number; endOffset: number }>,
   id: string,
-  color: string
+  color: string,
 ) => {
   for (const { node, startOffset, endOffset } of nodes) {
     // Trim the tail first so startOffset is still valid for the original node
@@ -143,7 +176,8 @@ const wrapTextNodes = (
       node.splitText(endOffset);
     }
 
-    const targetNode: Text = startOffset > 0 ? node.splitText(startOffset) : node;
+    const targetNode: Text =
+      startOffset > 0 ? node.splitText(startOffset) : node;
 
     const span = document.createElement("span");
     span.dataset.highlightId = id;
@@ -154,7 +188,11 @@ const wrapTextNodes = (
   }
 };
 
-export const higlightSelectedText = (): { id: string; text: string; context: string } | null => {
+export const higlightSelectedText = (): {
+  id: string;
+  text: string;
+  context: string;
+} | null => {
   const selection = globalSelection;
   if (!selection || selection.rangeCount === 0) return null;
 
@@ -175,12 +213,14 @@ export const higlightSelectedText = (): { id: string; text: string; context: str
 };
 
 export const removeHighlight = (id: string) => {
-  document.querySelectorAll(`span[data-highlight-id="${id}"]`).forEach((span) => {
-    while (span.firstChild) {
-      span.parentNode!.insertBefore(span.firstChild, span);
-    }
-    span.parentNode!.removeChild(span);
-  });
+  document
+    .querySelectorAll(`span[data-highlight-id="${id}"]`)
+    .forEach((span) => {
+      while (span.firstChild) {
+        span.parentNode!.insertBefore(span.firstChild, span);
+      }
+      span.parentNode!.removeChild(span);
+    });
 };
 
 const reapplyHighlight = (highlight: Highlight) => {
@@ -228,18 +268,22 @@ const reapplyHighlight = (highlight: Highlight) => {
     }
   }
 
-  if (highlightStart === -1){
+  if (highlightStart === -1) {
     return;
   }
 
   const selectedText = context.slice(
     context.indexOf(openMarker) + openMarker.length,
-    context.indexOf(closeMarker)
+    context.indexOf(closeMarker),
   );
   const highlightEnd = highlightStart + selectedText.length;
 
   // Find which text nodes cover [highlightStart, highlightEnd]
-  const affectedNodes: Array<{ node: Text; startOffset: number; endOffset: number }> = [];
+  const affectedNodes: Array<{
+    node: Text;
+    startOffset: number;
+    endOffset: number;
+  }> = [];
 
   for (let i = 0; i < textNodes.length; i++) {
     const nodeStart = positions[i];
@@ -261,9 +305,7 @@ export const loadPageHighlights = () => {
   chrome.storage.local.get("highlights", (result) => {
     const highlights: Highlight[] = (result.highlights as Highlight[]) ?? [];
     const currentUrl = normalizeUrl(location.href);
-    highlights
-      .filter((h) => h.url === currentUrl)
-      .forEach(reapplyHighlight);
+    highlights.filter((h) => h.url === currentUrl).forEach(reapplyHighlight);
   });
 };
 
@@ -274,7 +316,8 @@ export const getSelectedHighlightId = (): string | null => {
   const node = selection.anchorNode;
   if (!node) return null;
 
-  const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element);
+  const el =
+    node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element);
   const span = el?.closest("span[data-highlight-id]");
   return span?.getAttribute("data-highlight-id") ?? null;
 };
