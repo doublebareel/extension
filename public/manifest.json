@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Higlight",
+  "version": "1.0.0",
+  "description": "A super cool extension",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+
+  "action": {
+    "default_popup": "popup.html"
+  },
+
+  "options_page": "options.html",
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+
+  "icons": {
+    "16": "image.png",
+    "48": "image.png",
+    "128": "image.png"
+  }
+}

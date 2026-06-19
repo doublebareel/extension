@@ -1,0 +1,40 @@
+@use "../shared/styles/index";
+@use "../shared/components/button/Styles" as button;
+@use "../shared/components/icon/styles" as icon;
+@use "../shared/components/tooltip/Styles" as tooltip;
+
+:host {
+    all: initial;
+    display: block;
+    pointer-events: none;
+    font-family: var(--font-family-sans-serif);
+    font-weight: var(--font-weight-normal);
+
+
+    --icon-color: var(--color-neutral-900);
+}
+
+#toolbarComponent {
+    pointer-events: auto;
+}
+
+.toolbarContainer {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: var(--alpha-white-90);
+    padding: 4px 6px;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    border: 1px solid var(--color-neutral-600);
+
+    .icon {
+        --fill-icon-color: var(--icon-color);
+    }
+
+    &[data-theme="light"] {
+        background: var(--alpha-black-90, rgba(20, 20, 20, 0.9));
+        border-color: var(--color-neutral-700);
+        --icon-color: var(--color-neutral-100);
+    }
+}
