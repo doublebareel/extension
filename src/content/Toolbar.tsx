@@ -13,7 +13,15 @@ type ToolbarProps = {
   onDelete: () => void;
 };
 
-const Toolbar = ({ visible, x, y, theme, canDelete, onHighlight, onDelete }: ToolbarProps) => {
+const Toolbar = ({
+  visible,
+  x,
+  y,
+  theme,
+  canDelete,
+  onHighlight,
+  onDelete,
+}: ToolbarProps) => {
   if (!visible) {
     return null;
   }
@@ -28,7 +36,8 @@ const Toolbar = ({ visible, x, y, theme, canDelete, onHighlight, onDelete }: Too
         transform: "translateX(-50%)",
         zIndex: 999999,
         pointerEvents: "auto",
-      }}>
+      }}
+    >
       <div className="toolbarContainer" data-theme={theme}>
         {/* <button onClick={onHighlight}>
           Highlight
@@ -40,40 +49,26 @@ const Toolbar = ({ visible, x, y, theme, canDelete, onHighlight, onDelete }: Too
         <Icon name="delete" size={16} />  */}
 
         <Tooltip text="Highlight" position="top">
-          <Button 
-            onClick={onHighlight}
-            iconOnly
-            type="tonal" 
-            size="md">
+          <Button onClick={onHighlight} iconOnly type="tonal" size="md">
             <Icon name="marker" size={16} />
           </Button>
         </Tooltip>
 
         <Tooltip text="Change Color" position="top">
-          <Button 
-            iconOnly
-            type="tonal" 
-            size="md">
+          <Button iconOnly type="tonal" size="md">
             <Icon name="palette" size={16} />
           </Button>
         </Tooltip>
 
         <Tooltip text="Add Note" position="top">
-          <Button 
-            iconOnly
-            type="tonal" 
-            size="md">
+          <Button iconOnly type="tonal" size="md">
             <Icon name="comment-lines" size={16} />
           </Button>
         </Tooltip>
 
         {canDelete && (
           <Tooltip text="Delete" position="top">
-            <Button
-              iconOnly
-              onClick={onDelete}
-              type="tonal"
-              size="md">
+            <Button iconOnly onClick={onDelete} type="tonal" size="md">
               <Icon name="delete" size={16} />
             </Button>
           </Tooltip>

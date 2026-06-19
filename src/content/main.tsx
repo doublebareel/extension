@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import Toolbar from "./Toolbar";
 import {
@@ -32,32 +32,31 @@ const HighlighterRoot = () => {
     highlightId: null as string | null,
   });
 
+  const hideToolbar = useCallback(() => {
+    setToolbarState((current) =>
+      current.visible ? { ...current, visible: false } : current,
+    );
+  }, []);
+
   useEffect(() => {
-    const renderToolbar = (x: number, y: number, theme: Theme, highlightId: string | null) => {
+    const renderToolbar = (
+      x: number,
+      y: number,
+      theme: Theme,
+      highlightId: string | null,
+    ) => {
       setToolbarState({ visible: true, x, y, theme, highlightId });
     };
 
-    // const hideToolbar = () => {
-    //   setToolbarState((current) =>
-    //     current.visible ? { ...current, visible: false } : current,
-    //   );
-    // };
-
     setupHighlighter(renderToolbar, hideToolbar);
     loadPageHighlights();
-  }, []);
-
-    const hideToolbar = () => {
-      setToolbarState((current) =>
-        current.visible ? { ...current, visible: false } : current,
-      );
-    };
+  }, [hideToolbar]);
 
   const onHighlight = () => {
     const result = higlightSelectedText();
-    if (!result){
-    return;
-  }
+    if (!result) {
+      return;
+    }
 
     chrome.runtime.sendMessage({
       type: "ACTION_CLICKED",
@@ -74,7 +73,7 @@ const HighlighterRoot = () => {
 
   const onDelete = () => {
     const id = toolbarState.highlightId;
-    if (!id){
+    if (!id) {
       return;
     }
 
@@ -86,7 +85,6 @@ const HighlighterRoot = () => {
 
     hideToolbar();
     // setToolbarState((current) => ({ ...current, visible: false, highlightId: null }));
-
   };
 
   return (
@@ -105,5 +103,5 @@ const HighlighterRoot = () => {
 ReactDOM.createRoot(mountPoint).render(
   <React.StrictMode>
     <HighlighterRoot />
-  </React.StrictMode>
+  </React.StrictMode>,
 );

@@ -13,51 +13,46 @@ const Options = () => {
     <div className="options">
       <h1>Button showcase</h1>
 
-      {PALETTES.map(palette => (
+      {PALETTES.map((palette) => (
         <section key={palette} className="showcase-palette">
           <h2>{palette}</h2>
 
-          {TYPES.map(type => (
+          {TYPES.map((type) => (
             <div key={type} className="showcase-row">
               <span className="showcase-row__label">{type}</span>
 
               <div className="showcase-row__items">
-                {SIZES.map(size => (
-                  <Button
-                    key={size}
-                    type={type}
-                    palette={palette}
-                    size={size}>
+                {SIZES.map((size) => (
+                  <Button key={size} type={type} palette={palette} size={size}>
                     {size}
                   </Button>
                 ))}
 
-                {SIZES.map(size => (
+                {SIZES.map((size) => (
                   <Button
                     key={`icon-${size}`}
                     type={type}
                     palette={palette}
-                    size={size}>
+                    size={size}
+                  >
                     <Icon name="marker" size={ICON_SIZE[size]} />
                     <span>Marker</span>
                   </Button>
                 ))}
 
-                {SIZES.map(size => (
+                {SIZES.map((size) => (
                   <Button
                     key={`icon-only-${size}`}
                     type={type}
                     palette={palette}
                     size={size}
-                    iconOnly>
+                    iconOnly
+                  >
                     <Icon name="delete" size={ICON_SIZE[size]} />
                   </Button>
                 ))}
 
-                <Button
-                  type={type}
-                  palette={palette}
-                  disabled>
+                <Button type={type} palette={palette} disabled>
                   Disabled
                 </Button>
               </div>

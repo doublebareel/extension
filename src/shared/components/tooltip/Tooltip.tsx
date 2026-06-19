@@ -8,10 +8,16 @@ interface TooltipProps {
   children: ReactNode;
   position?: TooltipPosition;
   arrow?: boolean;
-  spacing? : number;
+  spacing?: number;
 }
 
-const Tooltip = ({ text, children, position = "top", arrow = false, spacing = 8 }: TooltipProps) => {
+const Tooltip = ({
+  text,
+  children,
+  position = "top",
+  arrow = false,
+  spacing = 8,
+}: TooltipProps) => {
   const [visible, setVisible] = useState(false);
 
   const showTooltip = () => {
@@ -27,14 +33,16 @@ const Tooltip = ({ text, children, position = "top", arrow = false, spacing = 8 
       className="tooltip-wrapper"
       onMouseEnter={showTooltip}
       onMouseLeave={hideTooltip}
-      onClick={hideTooltip}>
+      onClick={hideTooltip}
+    >
       {children}
 
       {visible && (
         <span
           role="tooltip"
           className={`tooltip tooltip--${position}`}
-          style={{ "--tooltip-spacing": `${spacing}px` } as React.CSSProperties}>
+          style={{ "--tooltip-spacing": `${spacing}px` } as React.CSSProperties}
+        >
           {text}
           {arrow && <span className="tooltip-arrow" />}
         </span>
