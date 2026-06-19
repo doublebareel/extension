@@ -1,9 +1,11 @@
+import { useState } from "react";
 import Button from "../shared/components/button/Button";
 import Icon from "../shared/components/icon/Icon";
 import Tooltip from "../shared/components/tooltip/Tooltip";
 import type { Theme } from "../shared/utils";
+import Note from "./Note";
 
-type ToolbarProps = {
+interface ToolbarProps {
   visible: boolean;
   x: number;
   y: number;
@@ -26,6 +28,13 @@ const Toolbar = ({
     return null;
   }
 
+  const [showNote, setShowNote] = useState<boolean>(false);
+
+  const handleAddNote = () => {
+    setShowNote(true);
+  }
+
+
   return (
     <div
       id="toolbarComponent"
@@ -38,42 +47,37 @@ const Toolbar = ({
         pointerEvents: "auto",
       }}
     >
-      <div className="toolbarContainer" data-theme={theme}>
-        {/* <button onClick={onHighlight}>
-          Highlight
-        </button>
-
-        <button onClick={onDelete}>
-          Delete
-        </button>
-        <Icon name="delete" size={16} />  */}
-
-        <Tooltip text="Highlight" position="top">
-          <Button onClick={onHighlight} iconOnly type="tonal" size="md">
-            <Icon name="marker" size={16} />
-          </Button>
-        </Tooltip>
-
-        <Tooltip text="Change Color" position="top">
-          <Button iconOnly type="tonal" size="md">
-            <Icon name="palette" size={16} />
-          </Button>
-        </Tooltip>
-
-        <Tooltip text="Add Note" position="top">
-          <Button iconOnly type="tonal" size="md">
-            <Icon name="comment-lines" size={16} />
-          </Button>
-        </Tooltip>
-
-        {canDelete && (
-          <Tooltip text="Delete" position="top">
-            <Button iconOnly onClick={onDelete} type="tonal" size="md">
-              <Icon name="delete" size={16} />
+      <span id="actions">
+        <div className="toolbarContainer" data-theme={theme}>
+          <Tooltip text="Highlight" position="top">
+            <Button onClick={onHighlight} iconOnly type="tonal" size="md">
+              <Icon name="marker" size={16} />
             </Button>
           </Tooltip>
-        )}
-      </div>
+
+          <Tooltip text="Change Color" position="top">
+            <Button iconOnly type="tonal" size="md">
+              <Icon name="palette" size={16} />
+            </Button>
+          </Tooltip>
+
+          <Tooltip text="Add Note" position="top">
+            <Button iconOnly type="tonal" size="md" onClick={handleAddNote}>
+              <Icon name="comment-lines" size={16} />
+            </Button>
+          </Tooltip>
+
+          {canDelete && (
+            <Tooltip text="Delete" position="top">
+              <Button iconOnly onClick={onDelete} type="tonal" size="md">
+                <Icon name="delete" size={16} />
+              </Button>
+            </Tooltip>
+          )}
+        </div>
+      </span>
+      
+      <Note show={showNote} />
     </div>
   );
 };
