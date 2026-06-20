@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import Toolbar from "./Toolbar";
 import NoteViewer from "./NoteViewer";
-import { higlightSelectedText, highlightWithNote, hasActiveSelection, setupHighlighter, setupNoteHover, removeHighlight, loadPageHighlights } from "./inject";
+import { higlightSelectedText, highlightWithNote, hasActiveSelection, setupHighlighter, setupNoteHover, removeHighlight, loadPageHighlights, markHighlightHasNote, clearSelectionState } from "./inject";
 import styles from "./styles.scss?inline";
-import { normalizeUrl, type Theme } from "../shared/utils";
+import { normalizeUrl } from "../shared/utils";
 
 const host = document.createElement("div");
 host.id = "my-extension-root";
@@ -24,8 +24,8 @@ const HighlighterRoot = () => {
     visible: false,
     x: 0,
     y: 0,
-    theme: "light" as Theme,
     highlightId: null as string | null,
+    canHighlight: true,
   });
 
   // Notes for highlights on this page, keyed by highlight id. Held in a ref too
@@ -73,12 +73,12 @@ const HighlighterRoot = () => {
   }, []);
 
   useEffect(() => {
-    const renderToolbar = (x: number, y: number, theme: Theme, highlightId: string | null) => {
+    const renderToolbar = (x: number, y: number, highlightId: string | null, canHighlight: boolean) => {
       // The toolbar and the hover note must not coexist — a fresh selection
       // (which raises the toolbar) closes any open note viewer.
       clearViewerHideTimer();
       hideViewer();
-      setToolbarState({ visible: true, x, y, theme, highlightId });
+      setToolbarState({ visible: true, x, y, highlightId, canHighlight });
     };
 
     setupHighlighter(renderToolbar, hideToolbar);
@@ -132,6 +132,27 @@ const HighlighterRoot = () => {
   };
 
   const onSaveNote = (note: string) => {
+    // When the selection overlaps an existing highlight, attach the note to that
+    // whole highlight instead of nesting a new one.
+    const existingId = toolbarState.highlightId;
+    if (existingId) {
+      markHighlightHasNote(existingId);
+      setNotes((current) => {
+        const next = new Map(current);
+        next.set(existingId, note);
+        return next;
+      });
+
+      chrome.runtime.sendMessage({
+        type: "UPDATE_NOTE",
+        payload: { id: existingId, note },
+      });
+
+      clearSelectionState();
+      hideToolbar();
+      return;
+    }
+
     const result = highlightWithNote(note);
     if (!result) {
       hideToolbar();
@@ -202,7 +223,7 @@ const HighlighterRoot = () => {
         visible={toolbarState.visible}
         x={toolbarState.x}
         y={toolbarState.y}
-        theme={toolbarState.theme}
+        canHighlight={toolbarState.canHighlight}
         canDelete={toolbarState.highlightId !== null}
         onHighlight={onHighlight}
         onDelete={onDelete}

@@ -1,36 +1,29 @@
 import { useEffect, useState } from "react";
 import Button from "../shared/components/button/Button";
 
-type NoteMode = "create" | "view";
-
 interface NoteProps {
   show: boolean;
-  // "create" opens straight into an empty editor; "view" shows the existing
-  // note read-only until the user clicks Edit.
-  mode?: NoteMode;
+  // Pre-fills the editor — empty for a brand new note, the existing text when
+  // editing one from the note viewer.
   initialValue?: string;
   onCancel: () => void;
   onSave: (note: string) => void;
 }
 
 const Note = (props: NoteProps) => {
-  const { show, mode = "create", initialValue = "", onCancel, onSave } = props;
+  const { show, initialValue = "", onCancel, onSave } = props;
 
   const [open, setOpen] = useState<boolean>(false);
   const [value, setValue] = useState<string>(initialValue);
-  const [editing, setEditing] = useState<boolean>(mode === "create");
   const [prevShow, setPrevShow] = useState<boolean>(show);
 
-  // Re-seed the note state every time it opens (the component can stay mounted),
-  // so a fresh selection — or hovering a different highlight — doesn't inherit
-  // stale text. Adjusting state during render is React's recommended pattern.
+  // Reset the note state when it is dismissed (the component stays mounted).
+  // Adjusting state during render is React's recommended pattern for this.
   if (show !== prevShow) {
     setPrevShow(show);
-    if (show) {
-      setValue(initialValue);
-      setEditing(mode === "create");
-    } else {
+    if (!show) {
       setOpen(false);
+      setValue(initialValue);
     }
   }
 
@@ -56,35 +49,16 @@ const Note = (props: NoteProps) => {
     onSave(value);
   };
 
-  const handleCancel = () => {
-    // In view mode, Cancel backs out of editing to the read-only note rather
-    // than dismissing the whole popover.
-    if (mode === "view") {
-      setValue(initialValue);
-      setEditing(false);
-      return;
-    }
-    onCancel();
-  };
-
   return (
     <div id="noteContainer" className={open ? "noteContainer--open" : ""}>
-      <textarea placeholder="Add your note here..." rows={4} value={value} readOnly={!editing} onChange={(event) => setValue(event.target.value)} autoFocus={editing}></textarea>
+      <textarea placeholder="Add your note here..." rows={4} value={value} onChange={(event) => setValue(event.target.value)} autoFocus></textarea>
       <div className="noteContainerActions">
-        {editing ? (
-          <>
-            <Button palette="secondary" type="default" size="md" onClick={handleCancel}>
-              Cancel
-            </Button>
-            <Button palette="primary" type="default" size="md" disabled={value.trim() === ""} onClick={handleSave}>
-              Save
-            </Button>
-          </>
-        ) : (
-          <Button palette="primary" type="default" size="md" onClick={() => setEditing(true)}>
-            Edit
-          </Button>
-        )}
+        <Button palette="secondary" type="default" size="md" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button palette="primary" type="default" size="md" disabled={value.trim() === ""} onClick={handleSave}>
+          Save
+        </Button>
       </div>
     </div>
   );

@@ -18,24 +18,85 @@
   pointer-events: auto;
 }
 
+#noteViewerComponent {
+  // The edit button sits just outside the bubble's top-right corner, so the
+  // hover target needs the small padding to stay over both.
+  padding: 6px;
+
+  .noteViewerBubble {
+    position: relative;
+    display: inline-block;
+    max-width: 280px;
+    padding: 6px;
+    border-radius: 6px;
+    background: var(--alpha-white-90);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+  }
+
+  .noteViewerText {
+    display: block;
+    box-sizing: border-box;
+    // Grow to fit the note instead of a fixed box; wraps once it hits max-width.
+    field-sizing: content;
+    min-width: 40px;
+    max-width: 264px;
+    max-height: 220px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-neutral-900);
+    font: var(--body-sm-regular);
+    line-height: 1.4;
+    resize: none;
+    outline: none;
+    overflow-y: auto;
+    cursor: default;
+  }
+
+  .noteViewerEdit {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-neutral-100, #fff);
+    color: var(--color-neutral-900);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    // Hidden until the note is hovered, so it stays out of the way while reading.
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    &:hover {
+      background: var(--color-neutral-200, #f0f0f0);
+    }
+  }
+
+  &:hover .noteViewerEdit,
+  .noteViewerEdit:focus-visible {
+    opacity: 1;
+  }
+}
+
 .toolbarContainer {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
   background: var(--alpha-white-90);
-  padding: 4px 6px;
+  padding: 4px;
   border-radius: 8px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
   border: 1px solid var(--color-neutral-600);
 
   .icon {
     --fill-icon-color: var(--icon-color);
-  }
-
-  &[data-theme="light"] {
-    background: var(--alpha-black-90, rgba(20, 20, 20, 0.9));
-    border-color: var(--color-neutral-700);
-    --icon-color: var(--color-neutral-100);
   }
 }
 

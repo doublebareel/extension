@@ -1,9 +1,9 @@
 import type { Highlight } from "../shared/types";
-import { normalizeUrl, detectBackgroundTheme, type Theme } from "../shared/utils";
+import { normalizeUrl } from "../shared/utils";
 import commentIcon from "../../public/icons/comment-lines.svg?raw";
 
 interface RenderToolbarCallback {
-  (x: number, y: number, theme: Theme, highlightId: string | null): void;
+  (x: number, y: number, highlightId: string | null, canHighlight: boolean): void;
 }
 interface HideToolbarCallback {
   (): void;
@@ -56,7 +56,7 @@ const isEventFromExtension = (event: Event): boolean => {
   return event.composedPath().some((target) => target instanceof HTMLElement && target.id === EXTENSION_HOST_ID);
 };
 
-const clearSelectionState = () => {
+export const clearSelectionState = () => {
   lastRange = null;
   window.getSelection()?.removeAllRanges();
 };
@@ -79,9 +79,29 @@ const scheduleHide = (hideToolbar: HideToolbarCallback) => {
 interface ToolbarPosition {
   x: number;
   y: number;
-  theme: Theme;
   highlightId: string | null;
+  canHighlight: boolean;
 }
+
+// The id of an existing highlight the range overlaps — whether the selection
+// sits entirely inside it or merely crosses into it. Lets the toolbar target
+// the whole highlight (delete, note, recolor) instead of nesting a new one.
+const getOverlappingHighlightId = (range: Range): string | null => {
+  const container = range.commonAncestorContainer;
+  const containerElement = container.nodeType === Node.TEXT_NODE ? container.parentElement : (container as Element);
+
+  // The whole selection may live inside an existing highlight.
+  const inside = containerElement?.closest("span[data-highlight-id]");
+  if (inside) {
+    return inside.getAttribute("data-highlight-id");
+  }
+
+  // Or it may only partially overlap a highlight nested below the common
+  // ancestor; pick the first one the range intersects.
+  const scope = containerElement ?? document.body;
+  const overlapping = Array.from(scope.querySelectorAll("span[data-highlight-id]")).find((highlight) => range.intersectsNode(highlight));
+  return overlapping?.getAttribute("data-highlight-id") ?? null;
+};
 
 const computeToolbarPosition = (range: Range): ToolbarPosition | null => {
   const rect = range.getBoundingClientRect();
@@ -90,17 +110,12 @@ const computeToolbarPosition = (range: Range): ToolbarPosition | null => {
     return null;
   }
 
-  // Sample the element that actually holds the selected text so we read the
-  // background behind the selection (e.g. a dark code block on a light page).
-  const anchor = range.commonAncestorContainer;
-  const element = anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : (anchor as Element);
-  const theme = detectBackgroundTheme(element);
+  // When the selection overlaps an existing highlight, the toolbar acts on that
+  // whole highlight; a new highlight cannot be created (which would nest).
+  const highlightId = getOverlappingHighlightId(range);
+  const canHighlight = highlightId === null;
 
-  // Only worth offering "Delete" when the selection sits inside an existing
-  // highlight, so the toolbar can hide the button otherwise.
-  const highlightId = element?.closest("span[data-highlight-id]")?.getAttribute("data-highlight-id") ?? null;
-
-  return { x: rect.left + rect.width / 2, y: rect.top, theme, highlightId };
+  return { x: rect.left + rect.width / 2, y: rect.top, highlightId, canHighlight };
 };
 
 const getLiveSelectionRange = (): Range | null => {
@@ -130,7 +145,7 @@ const handleSelectionChange = (renderToolbar: RenderToolbarCallback, hideToolbar
   }
 
   clearHideTimer();
-  renderToolbar(position.x, position.y, position.theme, position.highlightId);
+  renderToolbar(position.x, position.y, position.highlightId, position.canHighlight);
 };
 
 const handleReposition = (renderToolbar: RenderToolbarCallback) => {
@@ -149,7 +164,7 @@ const handleReposition = (renderToolbar: RenderToolbarCallback) => {
     return;
   }
 
-  renderToolbar(position.x, position.y, position.theme, position.highlightId);
+  renderToolbar(position.x, position.y, position.highlightId, position.canHighlight);
 };
 
 export const setupHighlighter = (renderToolbar: RenderToolbarCallback, hideToolbar: HideToolbarCallback) => {
@@ -224,7 +239,10 @@ const wrapTextNodes = (nodes: Array<{ node: Text; startOffset: number; endOffset
 
     const span = document.createElement("span");
     span.dataset.highlightId = id;
-    span.style.cssText = `background-color:${color};display:inline;`;
+    span.style.cssText = `
+      background-color:${color};
+      display:inline;
+      color: #000 !important;`;
 
     targetNode.parentNode!.insertBefore(span, targetNode);
     span.appendChild(targetNode);
@@ -284,6 +302,20 @@ export const highlightWithNote = (
   clearSelectionState();
 
   return result;
+};
+
+// Attach the note marker icon to an existing highlight, used when a note is
+// added to a highlight that didn't have one. The marker renders once, on the
+// last span of the (possibly multi-span) highlight.
+export const markHighlightHasNote = (id: string) => {
+  const spans = document.querySelectorAll<HTMLSpanElement>(`span[data-highlight-id="${id}"]`);
+  if (spans.length === 0) {
+    return;
+  }
+
+  ensureNoteMarkerStyle();
+  spans.forEach((span) => delete span.dataset.hasNote);
+  spans[spans.length - 1].dataset.hasNote = "true";
 };
 
 export const removeHighlight = (id: string) => {

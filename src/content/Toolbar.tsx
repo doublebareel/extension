@@ -2,14 +2,13 @@ import { useState } from "react";
 import Button from "../shared/components/button/Button";
 import Icon from "../shared/components/icon/Icon";
 import Tooltip from "../shared/components/tooltip/Tooltip";
-import type { Theme } from "../shared/utils";
 import Note from "./Note";
 
 interface ToolbarProps {
   visible: boolean;
   x: number;
   y: number;
-  theme: Theme;
+  canHighlight: boolean;
   canDelete: boolean;
   onHighlight: () => void;
   onDelete: () => void;
@@ -17,7 +16,7 @@ interface ToolbarProps {
   onSaveNote: (note: string) => void;
 }
 
-const Toolbar = ({ visible, x, y, theme, canDelete, onHighlight, onDelete, onAddNote, onSaveNote }: ToolbarProps) => {
+const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete, onAddNote, onSaveNote }: ToolbarProps) => {
   const [showNote, setShowNote] = useState<boolean>(false);
 
   // The component stays mounted (it returns null while hidden), so reset the
@@ -59,12 +58,17 @@ const Toolbar = ({ visible, x, y, theme, canDelete, onHighlight, onDelete, onAdd
     >
       {!showNote && (
         <span id="actions">
-          <div className="toolbarContainer" data-theme={theme}>
-            <Tooltip text="Highlight" position="top">
-              <Button onClick={onHighlight} iconOnly type="tonal" size="md">
-                <Icon name="marker" size={16} />
-              </Button>
-            </Tooltip>
+          <div className="toolbarContainer">
+            {/* Hidden when the selection overlaps an existing highlight, to
+                prevent nested highlights. Note and color still act on the
+                existing highlight. */}
+            {canHighlight && (
+              <Tooltip text="Highlight" position="top">
+                <Button onClick={onHighlight} iconOnly type="tonal" size="md">
+                  <Icon name="marker" size={16} />
+                </Button>
+              </Tooltip>
+            )}
 
             <Tooltip text="Change Color" position="top">
               <Button iconOnly type="tonal" size="md">

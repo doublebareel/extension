@@ -1,3 +1,5 @@
+import { useState } from "react";
+import Icon from "../shared/components/icon/Icon";
 import Note from "./Note";
 
 interface NoteViewerProps {
@@ -10,10 +12,27 @@ interface NoteViewerProps {
   onMouseLeave: () => void;
 }
 
-// Floating read-only note shown when hovering a highlight that has a note. It
-// keeps itself open while the pointer is over it (onMouseEnter/Leave) so the
-// user can reach the Edit button without the popover dismissing.
-const NoteViewer = ({ visible, x, y, note, onSave, onMouseEnter, onMouseLeave }: NoteViewerProps) => {
+// Compact, borderless bubble shown when hovering a highlight that has a note.
+// It sizes to its text (no fixed card) and reveals a small edit affordance on
+// hover; clicking it opens the shared Note editor pre-filled with the note.
+const NoteViewer = (props: NoteViewerProps) => {
+  const { visible, x, y, note, onSave, onMouseEnter, onMouseLeave } = props;
+
+  const [editing, setEditing] = useState<boolean>(false);
+  const [prevNote, setPrevNote] = useState<string>(note);
+  const [prevVisible, setPrevVisible] = useState<boolean>(visible);
+
+  // Back to read-only on each (re)open or when the hovered note changes — the
+  // component stays mounted (returns null while hidden), so without this it
+  // would stay in edit mode from the previously hovered highlight.
+  if (note !== prevNote || visible !== prevVisible) {
+    setPrevNote(note);
+    setPrevVisible(visible);
+    if (visible) {
+      setEditing(false);
+    }
+  }
+
   if (!visible) {
     return null;
   }
@@ -34,7 +53,16 @@ const NoteViewer = ({ visible, x, y, note, onSave, onMouseEnter, onMouseLeave }:
         pointerEvents: "auto",
       }}
     >
-      <Note show={visible} mode="view" initialValue={note} onSave={onSave} onCancel={() => {}} />
+      {editing ? (
+        <Note show initialValue={note} onCancel={() => setEditing(false)} onSave={onSave} />
+      ) : (
+        <div className="noteViewerBubble">
+          <textarea className="noteViewerText" value={note} readOnly rows={1} />
+          <button type="button" className="noteViewerEdit" aria-label="Edit note" onClick={() => setEditing(true)}>
+            <Icon name="edit" size={12} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
