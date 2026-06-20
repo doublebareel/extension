@@ -3,6 +3,7 @@ import Button from "../shared/components/button/Button";
 import Icon from "../shared/components/icon/Icon";
 import Tooltip from "../shared/components/tooltip/Tooltip";
 import Note from "./Note";
+import Palette from "./Palette";
 
 interface ToolbarProps {
   visible: boolean;
@@ -18,6 +19,7 @@ interface ToolbarProps {
 
 const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete, onAddNote, onSaveNote }: ToolbarProps) => {
   const [showNote, setShowNote] = useState<boolean>(false);
+  const [showPalette, setShowPalette] = useState<boolean>(false);
 
   // The component stays mounted (it returns null while hidden), so reset the
   // note whenever the toolbar is dismissed — otherwise it would reopen with the
@@ -26,6 +28,7 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete
   if (!visible) {
     if (showNote) {
       setShowNote(false);
+      setShowPalette(false);
     }
     return null;
   }
@@ -71,7 +74,7 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete
             )}
 
             <Tooltip text="Change Color" position="top">
-              <Button iconOnly type="tonal" size="md">
+              <Button iconOnly type="tonal" size="md" onClick={() => setShowPalette(!showPalette)}>
                 <Icon name="palette" size={16} />
               </Button>
             </Tooltip>
@@ -94,6 +97,7 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete
       )}
 
       <Note show={showNote} onCancel={handleCancelNote} onSave={onSaveNote} />
+      <Palette show={showPalette} />
     </div>
   );
 };
