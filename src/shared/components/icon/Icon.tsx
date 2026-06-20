@@ -41,13 +41,7 @@ const Icon = (props: IconProps) => {
     height: size,
   } as React.CSSProperties;
 
-  return (
-    <span
-      className="icon"
-      style={style}
-      dangerouslySetInnerHTML={{ __html: raw }}
-    />
-  );
+  return <span className="icon" style={style} dangerouslySetInnerHTML={{ __html: raw }} />;
 };
 
 export default Icon;

@@ -7,24 +7,19 @@ const Popup = () => {
   const [testData, setTestData] = useState<Highlight[] | null>(null);
 
   useEffect(() => {
-    chrome.storage.local.get(
-      "highlights",
-      (result: { highlights?: Highlight[] }) => {
-        const highlights = result.highlights ?? [];
+    chrome.storage.local.get("highlights", (result: { highlights?: Highlight[] }) => {
+      const highlights = result.highlights ?? [];
 
-        console.log(highlights, "loaded highlights");
+      console.log(highlights, "loaded highlights");
 
-        setTestData(highlights);
-      },
-    );
+      setTestData(highlights);
+    });
   }, []);
 
   return (
     <div id="popupContainer">
       Brand name here
-      <button onClick={() => chrome.runtime.openOptionsPage()}>
-        Open Settings
-      </button>
+      <button onClick={() => chrome.runtime.openOptionsPage()}>Open Settings</button>
       <p>key: {storageString}</p>
       {testData && (
         <div>

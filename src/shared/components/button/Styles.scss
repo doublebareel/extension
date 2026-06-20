@@ -12,7 +12,7 @@
   justify-content: center;
   gap: 0.5rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   font: var(--body-sm-semibold);
   cursor: pointer;
   background: transparent;
@@ -61,11 +61,13 @@
   // ---- Primary (dark) ----
   &--primary {
     &.button--default {
-      background: var(--color-neutral-900);
+      // background: var(--color-neutral-900);
+      background: var(--temp-purple);
       color: var(--color-neutral-0);
 
       &:hover {
-        background: var(--color-neutral-800);
+        background: var(--temp-purple-secondary);
+        // background: var(--color-neutral-800);
       }
     }
 

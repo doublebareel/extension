@@ -15,25 +15,12 @@ interface ButtonProps {
 }
 
 const Button = (props: ButtonProps) => {
-  const {
-    type = "default",
-    palette = "primary",
-    size = "md",
-    iconOnly = false,
-    onClick,
-    disabled = false,
-    children,
-  } = props;
+  const { type = "default", palette = "primary", size = "md", iconOnly = false, onClick, disabled = false, children } = props;
 
   const className = `button button--${type} button--${palette} button--${size}${iconOnly ? " button--icon-only" : ""}`;
 
   return (
-    <button
-      type="button"
-      className={className}
-      onClick={onClick}
-      disabled={disabled}
-    >
+    <button type="button" className={className} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   );

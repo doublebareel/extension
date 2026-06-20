@@ -5,4 +5,5 @@ export interface Highlight {
   url: string;
   context: string;
   color: string;
+  note?: string;
 }

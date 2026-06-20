@@ -5,9 +5,7 @@ export const normalizeUrl = (url: string): string => {
 
 export type Theme = "light" | "dark";
 
-const parseColor = (
-  color: string,
-): { r: number; g: number; b: number; a: number } | null => {
+const parseColor = (color: string): { r: number; g: number; b: number; a: number } | null => {
   const match = color.match(/rgba?\(([^)]+)\)/);
 
   if (!match) {
@@ -23,9 +21,7 @@ const parseColor = (
 // Walk up the DOM until we find an element with a non-transparent background.
 // Most elements report rgba(0,0,0,0), so the real color comes from an ancestor.
 // Falls back to white, which is the browser's default page background.
-const getEffectiveBackgroundColor = (
-  element: Element | null,
-): { r: number; g: number; b: number } => {
+const getEffectiveBackgroundColor = (element: Element | null): { r: number; g: number; b: number } => {
   let current: Element | null = element;
 
   while (current) {
@@ -46,9 +42,7 @@ const getRelativeLuminance = (r: number, g: number, b: number): number => {
   const toLinear = (value: number) => {
     const normalized = value / 255;
 
-    return normalized <= 0.03928
-      ? normalized / 12.92
-      : Math.pow((normalized + 0.055) / 1.055, 2.4);
+    return normalized <= 0.03928 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
   };
 
   return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
