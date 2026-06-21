@@ -12,19 +12,28 @@ interface NoteViewerProps {
   onMouseLeave: () => void;
 }
 
+interface NoteViewerState {
+  editing: boolean;
+  prevNote: string;
+  prevVisible: boolean;
+}
+
 const NoteViewer = (props: NoteViewerProps) => {
   const { visible, x, y, note, onSave, onMouseEnter, onMouseLeave } = props;
 
-  const [editing, setEditing] = useState<boolean>(false);
-  const [prevNote, setPrevNote] = useState<string>(note);
-  const [prevVisible, setPrevVisible] = useState<boolean>(visible);
+  const [noteViewerState, setNoteViewerState] = useState<NoteViewerState>({
+    editing: false,
+    prevNote: note,
+    prevVisible: visible
+  });
 
-  if (note !== prevNote || visible !== prevVisible) {
-    setPrevNote(note);
-    setPrevVisible(visible);
-    if (visible) {
-      setEditing(false);
-    }
+  if (note !== noteViewerState.prevNote || visible !== noteViewerState.prevVisible) {
+    setNoteViewerState({
+      ...noteViewerState,
+      prevNote: note,
+      prevVisible: visible,
+      editing: visible ? false : noteViewerState.editing
+    });
   }
 
   if (!visible) {
@@ -46,12 +55,17 @@ const NoteViewer = (props: NoteViewerProps) => {
         pointerEvents: "auto",
       }}
     >
-      {editing ? (
-        <Note show initialValue={note} onCancel={() => setEditing(false)} onSave={onSave} />
+      {noteViewerState.editing ? (
+        <Note
+          show
+          initialValue={note}
+          onCancel={() => setNoteViewerState({ ...noteViewerState, editing: false })}
+          onSave={onSave}
+        />
       ) : (
         <div className="noteViewerBubble">
           <textarea className="noteViewerText" value={note} readOnly rows={1} />
-          <button type="button" className="noteViewerEdit" aria-label="Edit note" onClick={() => setEditing(true)}>
+          <button type="button" className="noteViewerEdit" aria-label="Edit note" onClick={() => setNoteViewerState({ ...noteViewerState, editing: true })}>
             <Icon name="edit" size={12} />
           </button>
         </div>
