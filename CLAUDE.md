@@ -32,25 +32,32 @@ The content config sets `emptyOutDir: false` to avoid wiping the main build outp
 ```
 User selects text on page
   → content/inject.ts (mouseup listener)
-    → renderToolbar(x, y) → ContentApp.tsx shows floating toolbar
-      → user clicks "Highlight"
-        → inject.ts: higlightSelectedText() wraps selection in <span style="backgroundColor:yellow">
-        → chrome.runtime.sendMessage({ type: "ACTION_CLICKED", payload: text })
+    → renderToolbar(x, y, highlightId, canHighlight) → Toolbar.tsx shows floating toolbar
+      → user clicks "Highlight" (or picks a color/style in Palette, adds a note, etc.)
+        → inject.ts: higlightSelectedText(color, style) wraps the selection in
+          <span data-highlight-id> styled by buildHighlightCss() (background fill or
+          colored text-decoration)
+        → chrome.runtime.sendMessage({ type: "ACTION_CLICKED", payload: { id, text, url, context, color, style, note? } })
           → background/serviceWorker.ts appends to chrome.storage.local["highlights"]
             → popup/Popup.tsx reads chrome.storage.local["highlights"] on open
+            → on later page loads, inject.ts loadPageHighlights() re-wraps them via stored context
 ```
+
+Background message types (`src/background/serviceWorker.ts`): `ACTION_CLICKED` (create), `UPDATE_HIGHLIGHT` (recolor/restyle), `UPDATE_NOTE` (note text), `DELETE_HIGHLIGHT`.
 
 ### Content script isolation (`src/content/`)
 
-The content script mounts React into a **closed Shadow DOM** to prevent style leakage from host pages. Three files cooperate:
+The content script mounts React into a **closed Shadow DOM** to prevent style leakage from host pages. Highlights themselves live in the host page DOM (outside the shadow root) as inline-styled `<span data-highlight-id>` wrappers. Key files:
 
-- **`inject.ts`** — DOM/selection logic. Exports `setupHighlighter(renderToolbar, hideToolbar)`, `getSelectedText()`, `higlightSelectedText()`. Uses module-level globals (`selectedTextValue`, `globalSelection`, `hideTimer`).
-- **`main.tsx`** — Creates `<div id="my-extension-root">`, attaches closed Shadow DOM, mounts `HighlighterRoot`, and wires `setupHighlighter` callbacks.
-- **`ContentApp.tsx`** — Stateless React component receiving `{ x, y, visible, onAction }` props; renders the floating toolbar.
+- **`inject.ts`** — All DOM/selection logic (no React). Module-level globals `lastRange` (frozen clone of the selection) and `hideTimer`. Exports include `setupHighlighter`, `higlightSelectedText`, `highlightWithNote`, `restyleHighlight`, `markHighlightHasNote`, `removeHighlight`, `loadPageHighlights`, `setupNoteHover`, `clearSelectionState`. `buildHighlightCss(color, style)` is the single source of truth for how a highlight renders.
+- **`main.tsx`** — Creates `<div id="my-extension-root">`, attaches the closed Shadow DOM, mounts `HighlighterRoot`, wires `setupHighlighter`/`setupNoteHover` callbacks, owns toolbar/viewer state and the per-highlight `notes` map, and sends all `chrome.runtime` messages.
+- **`Toolbar.tsx`** — Floating toolbar: Highlight / Change Color / Add Note / Delete. Nested highlights are prevented — when a selection overlaps an existing highlight the Highlight button is hidden and the palette/note act on that whole highlight instead.
+- **`Palette.tsx`** + **`paletteOptions.ts`** — Color + style picker (8 colors; styles `default | underline | wave | strike`). Constants live in the `.ts` file so the `.tsx` only exports a component (fast-refresh lint rule).
+- **`Note.tsx`** / **`NoteViewer.tsx`** — Note editor (in the toolbar) and the hover popover shown over a highlight that has a note.
 
 ### Shared types
 
-`src/shared/types.ts` defines the `Highlight` interface `{ id, text, timestamp }` used by both background and popup. `src/shared/storage.ts` and `src/shared/utils.ts` are stubs with no implemented logic yet.
+`src/shared/types.ts` defines `HighlightStyle` and the `Highlight` interface `{ id, text, timestamp, url, context, color, style?, note? }`, used across background, content, and popup. `src/shared/utils.ts` implements `normalizeUrl()` (used to scope highlights to a page). `src/shared/storage.ts` is still an empty stub.
 
 ### Styling
 

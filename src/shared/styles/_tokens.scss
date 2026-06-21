@@ -8,17 +8,14 @@
 // document and `:root` matches nothing inside a shadow tree, so each context only
 // ever sees the rule that applies to it.
 
-
 //#151b23 github dark bg
-
 
 :root,
 :host {
   // Primitive palette — raw values, not consumed directly by components.
 
-  --temp-purple: #5943B6;
-  --temp-purple-secondary: #A989F5;
-
+  --temp-purple: #5943b6;
+  --temp-purple-secondary: #a989f5;
 
   --color-neutral-900: #282828;
   --color-neutral-800: #424242;
@@ -61,8 +58,6 @@
   --alpha-white-70: hsla(0, 0%, 100%, 0.7);
   --alpha-white-80: hsla(0, 0%, 100%, 0.8);
   --alpha-white-90: hsla(0, 0%, 100%, 0.9);
-
-  // Semantic tokens — consume these in components.
 
   //fonts
   --font-family-sans-serif: "Inter", sans-serif;

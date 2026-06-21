@@ -2,8 +2,10 @@ import { useState } from "react";
 import Button from "../shared/components/button/Button";
 import Icon from "../shared/components/icon/Icon";
 import Tooltip from "../shared/components/tooltip/Tooltip";
+import type { HighlightStyle } from "../shared/types";
 import Note from "./Note";
 import Palette from "./Palette";
+import { DEFAULT_HIGHLIGHT_COLOR, DEFAULT_HIGHLIGHT_STYLE } from "./paletteOptions";
 
 interface ToolbarProps {
   visible: boolean;
@@ -11,23 +13,30 @@ interface ToolbarProps {
   y: number;
   canHighlight: boolean;
   canDelete: boolean;
-  onHighlight: () => void;
+  // Existing note text for the selected highlight, prefilled into the editor.
+  initialNote: string;
+  onHighlight: (color: string, style: HighlightStyle) => void;
+  onRestyle: (color: string, style: HighlightStyle) => void;
   onDelete: () => void;
   onAddNote: () => boolean;
-  onSaveNote: (note: string) => void;
+  onSaveNote: (note: string, color: string, style: HighlightStyle) => void;
 }
 
-const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete, onAddNote, onSaveNote }: ToolbarProps) => {
+const Toolbar = ({ visible, x, y, canHighlight, canDelete, initialNote, onHighlight, onRestyle, onDelete, onAddNote, onSaveNote }: ToolbarProps) => {
   const [showNote, setShowNote] = useState<boolean>(false);
   const [showPalette, setShowPalette] = useState<boolean>(false);
+  const [color, setColor] = useState<string>(DEFAULT_HIGHLIGHT_COLOR);
+  const [style, setStyle] = useState<HighlightStyle>(DEFAULT_HIGHLIGHT_STYLE);
 
   // The component stays mounted (it returns null while hidden), so reset the
-  // note whenever the toolbar is dismissed — otherwise it would reopen with the
-  // next selection. Adjusting state during render is React's recommended pattern
-  // for resetting on a prop change.
+  // open popovers whenever the toolbar is dismissed — otherwise they would
+  // reopen with the next selection. Adjusting state during render is React's
+  // recommended pattern for resetting on a prop change.
   if (!visible) {
     if (showNote) {
       setShowNote(false);
+    }
+    if (showPalette) {
       setShowPalette(false);
     }
     return null;
@@ -42,6 +51,23 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete
 
   const handleCancelNote = () => {
     setShowNote(false);
+  };
+
+  // For a new selection the palette only stages the choice (applied when the
+  // Highlight button is clicked); when the selection overlaps an existing
+  // highlight there is no Highlight button, so apply to it immediately.
+  const handleColorChange = (nextColor: string) => {
+    setColor(nextColor);
+    if (!canHighlight) {
+      onRestyle(nextColor, style);
+    }
+  };
+
+  const handleStyleChange = (nextStyle: HighlightStyle) => {
+    setStyle(nextStyle);
+    if (!canHighlight) {
+      onRestyle(color, nextStyle);
+    }
   };
 
   return (
@@ -59,6 +85,9 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete
         pointerEvents: "auto",
       }}
     >
+      {/* Sits above the toolbar so it opens "over" the buttons. */}
+      <Palette show={showPalette && !showNote} color={color} style={style} onColorChange={handleColorChange} onStyleChange={handleStyleChange} />
+
       {!showNote && (
         <span id="actions">
           <div className="toolbarContainer">
@@ -67,7 +96,7 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete
                 existing highlight. */}
             {canHighlight && (
               <Tooltip text="Highlight" position="top">
-                <Button onClick={onHighlight} iconOnly type="tonal" size="md">
+                <Button onClick={() => onHighlight(color, style)} iconOnly type="tonal" size="md">
                   <Icon name="marker" size={16} />
                 </Button>
               </Tooltip>
@@ -96,8 +125,7 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, onHighlight, onDelete
         </span>
       )}
 
-      <Note show={showNote} onCancel={handleCancelNote} onSave={onSaveNote} />
-      <Palette show={showPalette} />
+      <Note show={showNote} initialValue={initialNote} onCancel={handleCancelNote} onSave={(note) => onSaveNote(note, color, style)} />
     </div>
   );
 };

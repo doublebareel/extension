@@ -2,7 +2,19 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import Toolbar from "./Toolbar";
 import NoteViewer from "./NoteViewer";
-import { higlightSelectedText, highlightWithNote, hasActiveSelection, setupHighlighter, setupNoteHover, removeHighlight, loadPageHighlights, markHighlightHasNote, clearSelectionState } from "./inject";
+import {
+  higlightSelectedText,
+  highlightWithNote,
+  hasActiveSelection,
+  setupHighlighter,
+  setupNoteHover,
+  removeHighlight,
+  loadPageHighlights,
+  markHighlightHasNote,
+  clearSelectionState,
+  restyleHighlight,
+} from "./inject";
+import type { HighlightStyle } from "../shared/types";
 import styles from "./styles.scss?inline";
 import { normalizeUrl } from "../shared/utils";
 
@@ -108,8 +120,8 @@ const HighlighterRoot = () => {
     return setupNoteHover(showNoteViewer, scheduleViewerHide);
   }, [clearViewerHideTimer, scheduleViewerHide]);
 
-  const onHighlight = () => {
-    const result = higlightSelectedText();
+  const onHighlight = (color: string, style: HighlightStyle) => {
+    const result = higlightSelectedText(color, style);
     if (!result) {
       return;
     }
@@ -121,17 +133,33 @@ const HighlighterRoot = () => {
         text: result.text,
         url: normalizeUrl(location.href),
         context: result.context,
-        color: "yellow",
+        color,
+        style,
       },
     });
     hideToolbar();
+  };
+
+  // Recolor / restyle an existing highlight when the palette acts on a selection
+  // that overlaps one (which has no Highlight button to apply through).
+  const onRestyle = (color: string, style: HighlightStyle) => {
+    const id = toolbarState.highlightId;
+    if (!id) {
+      return;
+    }
+
+    restyleHighlight(id, color, style);
+    chrome.runtime.sendMessage({
+      type: "UPDATE_HIGHLIGHT",
+      payload: { id, color, style },
+    });
   };
 
   const onAddNote = (): boolean => {
     return hasActiveSelection();
   };
 
-  const onSaveNote = (note: string) => {
+  const onSaveNote = (note: string, color: string, style: HighlightStyle) => {
     // When the selection overlaps an existing highlight, attach the note to that
     // whole highlight instead of nesting a new one.
     const existingId = toolbarState.highlightId;
@@ -153,7 +181,7 @@ const HighlighterRoot = () => {
       return;
     }
 
-    const result = highlightWithNote(note);
+    const result = highlightWithNote(note, color, style);
     if (!result) {
       hideToolbar();
       return;
@@ -174,7 +202,8 @@ const HighlighterRoot = () => {
         text: result.text,
         url: normalizeUrl(location.href),
         context: result.context,
-        color: "yellow",
+        color,
+        style,
         note,
       },
     });
@@ -225,20 +254,14 @@ const HighlighterRoot = () => {
         y={toolbarState.y}
         canHighlight={toolbarState.canHighlight}
         canDelete={toolbarState.highlightId !== null}
+        initialNote={(toolbarState.highlightId && notes.get(toolbarState.highlightId)) || ""}
         onHighlight={onHighlight}
+        onRestyle={onRestyle}
         onDelete={onDelete}
         onAddNote={onAddNote}
         onSaveNote={onSaveNote}
       />
-      <NoteViewer
-        visible={viewerState.visible}
-        x={viewerState.x}
-        y={viewerState.y}
-        note={viewerState.note}
-        onSave={onEditNote}
-        onMouseEnter={clearViewerHideTimer}
-        onMouseLeave={scheduleViewerHide}
-      />
+      <NoteViewer visible={viewerState.visible} x={viewerState.x} y={viewerState.y} note={viewerState.note} onSave={onEditNote} onMouseEnter={clearViewerHideTimer} onMouseLeave={scheduleViewerHide} />
     </>
   );
 };

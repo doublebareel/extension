@@ -6,7 +6,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "ACTION_CLICKED") {
-    const { id, text, url, context, color, note } = message.payload;
+    const { id, text, url, context, color, style, note } = message.payload;
 
     const newHighlight: Highlight = {
       id,
@@ -15,12 +15,24 @@ chrome.runtime.onMessage.addListener((message) => {
       url,
       context,
       color,
+      style,
       note,
     };
 
     chrome.storage.local.get("highlights", (result) => {
       const current = (result.highlights as Highlight[]) ?? [];
       chrome.storage.local.set({ highlights: [...current, newHighlight] });
+    });
+  }
+
+  if (message.type === "UPDATE_HIGHLIGHT") {
+    const { id, color, style } = message.payload;
+
+    chrome.storage.local.get("highlights", (result) => {
+      const current = (result.highlights as Highlight[]) ?? [];
+      chrome.storage.local.set({
+        highlights: current.map((highlight) => (highlight.id === id ? { ...highlight, color, style } : highlight)),
+      });
     });
   }
 

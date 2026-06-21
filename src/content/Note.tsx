@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "../shared/components/button/Button";
 
 interface NoteProps {
@@ -16,25 +16,39 @@ const Note = (props: NoteProps) => {
   const [open, setOpen] = useState<boolean>(false);
   const [value, setValue] = useState<string>(initialValue);
   const [prevShow, setPrevShow] = useState<boolean>(show);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Reset the note state when it is dismissed (the component stays mounted).
-  // Adjusting state during render is React's recommended pattern for this.
+  // Seed the textarea from initialValue each time the editor opens (so editing
+  // an existing note prefills its text), and collapse it on close. The component
+  // stays mounted; adjusting state during render is React's recommended pattern.
   if (show !== prevShow) {
     setPrevShow(show);
-    if (!show) {
-      setOpen(false);
+    if (show) {
       setValue(initialValue);
+    } else {
+      setOpen(false);
     }
   }
 
   // Mount collapsed, then flip to the open state on the next frame so the
   // width/height transition actually runs instead of snapping to full size.
+  // Also focus the textarea and drop the caret at the end of the prefilled text
+  // (autoFocus alone leaves it at the start when editing an existing note).
   useEffect(() => {
     if (!show) {
       return;
     }
 
-    const frame = requestAnimationFrame(() => setOpen(true));
+    const frame = requestAnimationFrame(() => {
+      setOpen(true);
+
+      const textarea = textareaRef.current;
+      if (textarea) {
+        textarea.focus();
+        const end = textarea.value.length;
+        textarea.setSelectionRange(end, end);
+      }
+    });
     return () => cancelAnimationFrame(frame);
   }, [show]);
 
@@ -51,7 +65,7 @@ const Note = (props: NoteProps) => {
 
   return (
     <div id="noteContainer" className={open ? "noteContainer--open" : ""}>
-      <textarea placeholder="Add your note here..." rows={4} value={value} onChange={(event) => setValue(event.target.value)} autoFocus></textarea>
+      <textarea ref={textareaRef} placeholder="Add your note here..." rows={4} value={value} onChange={(event) => setValue(event.target.value)}></textarea>
       <div className="noteContainerActions">
         <Button palette="secondary" type="default" size="md" onClick={onCancel}>
           Cancel

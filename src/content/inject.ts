@@ -1,4 +1,4 @@
-import type { Highlight } from "../shared/types";
+import type { Highlight, HighlightStyle } from "../shared/types";
 import { normalizeUrl } from "../shared/utils";
 import commentIcon from "../../public/icons/comment-lines.svg?raw";
 
@@ -22,10 +22,11 @@ let lastRange: Range | null = null;
 // Highlights live in the host page DOM (not our shadow DOM) and are styled with
 // inline styles, which cannot express a ::after. The note marker therefore needs
 // a real stylesheet injected into the page once, keyed off `data-has-note`. The
-// icon is inlined as a data URI so no web_accessible_resources entry is needed;
-// currentColor is swapped for a fixed dark fill since background images don't
-// inherit color.
-const noteMarkerDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(commentIcon.replace(/currentColor/g, "#1a1a1a"))}`;
+// icon is drawn as a CSS mask (the SVG only supplies the shape) so its color
+// comes from `background-color`, which a per-span `--note-marker-color` variable
+// drives — letting the icon match the highlight color for the line styles while
+// falling back to a dark fill for the default (background-filled) style.
+const noteMarkerDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(commentIcon.replace(/currentColor/g, "#000"))}`;
 
 let markerStyleInjected = false;
 
@@ -44,12 +45,29 @@ const ensureNoteMarkerStyle = () => {
   height: 0.85em;
   margin-left: 2px;
   vertical-align: -0.12em;
-  background-image: url("${noteMarkerDataUri}");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
+  background-color: var(--note-marker-color, #1a1a1a);
+  -webkit-mask-image: url("${noteMarkerDataUri}");
+  mask-image: url("${noteMarkerDataUri}");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
 }`;
   (document.head ?? document.documentElement).appendChild(style);
+};
+
+// Tint the note marker icon to match the highlight color for the line styles
+// (which expose a text-decoration-color); the default style has none, so the
+// variable is cleared and the icon keeps its standard dark fill.
+const syncNoteMarkerColor = (span: HTMLSpanElement) => {
+  const decorationColor = span.style.textDecorationColor;
+  if (decorationColor) {
+    span.style.setProperty("--note-marker-color", decorationColor);
+  } else {
+    span.style.removeProperty("--note-marker-color");
+  }
 };
 
 const isEventFromExtension = (event: Event): boolean => {
@@ -226,7 +244,23 @@ const extractContext = (range: Range): string => {
   return `${before}[[[${range.toString()}]]]${after}`;
 };
 
-const wrapTextNodes = (nodes: Array<{ node: Text; startOffset: number; endOffset: number }>, id: string, color: string, hasNote = false) => {
+// Inline styles for a highlight span. "default" fills the background (and forces
+// readable black text); the line styles use the color as the decoration color
+// and leave the background — and the page's own text color — untouched.
+const buildHighlightCss = (color: string, style: HighlightStyle): string => {
+  switch (style) {
+    case "underline":
+      return `display:inline; text-decoration-line:underline; text-decoration-style:solid; text-decoration-color:${color}; text-decoration-thickness:3px;`;
+    case "wave":
+      return `display:inline; text-decoration-line:underline; text-decoration-style:wavy; text-decoration-color:${color};`;
+    case "strike":
+      return `display:inline; text-decoration-line:line-through; text-decoration-color:${color}; text-decoration-thickness: 3px;`;
+    default:
+      return `display:inline; background-color:${color}; color:#000 !important;`;
+  }
+};
+
+const wrapTextNodes = (nodes: Array<{ node: Text; startOffset: number; endOffset: number }>, id: string, color: string, style: HighlightStyle, hasNote = false) => {
   const spans: HTMLSpanElement[] = [];
 
   for (const { node, startOffset, endOffset } of nodes) {
@@ -239,10 +273,7 @@ const wrapTextNodes = (nodes: Array<{ node: Text; startOffset: number; endOffset
 
     const span = document.createElement("span");
     span.dataset.highlightId = id;
-    span.style.cssText = `
-      background-color:${color};
-      display:inline;
-      color: #000 !important;`;
+    span.style.cssText = buildHighlightCss(color, style);
 
     targetNode.parentNode!.insertBefore(span, targetNode);
     span.appendChild(targetNode);
@@ -253,11 +284,19 @@ const wrapTextNodes = (nodes: Array<{ node: Text; startOffset: number; endOffset
   // the last one so the note icon renders once, at the end of the highlight.
   if (hasNote && spans.length > 0) {
     ensureNoteMarkerStyle();
-    spans[spans.length - 1].dataset.hasNote = "true";
+    const marker = spans[spans.length - 1];
+    marker.dataset.hasNote = "true";
+    syncNoteMarkerColor(marker);
   }
 };
 
-const highlightRange = (range: Range, note?: string): { id: string; text: string; context: string } | null => {
+interface HighlightOptions {
+  color: string;
+  style: HighlightStyle;
+  note?: string;
+}
+
+const highlightRange = (range: Range, options: HighlightOptions): { id: string; text: string; context: string } | null => {
   const text = range.toString().trim();
   if (!text) return null;
 
@@ -265,7 +304,7 @@ const highlightRange = (range: Range, note?: string): { id: string; text: string
   const context = extractContext(range);
   const nodes = getTextNodesInRange(range);
 
-  wrapTextNodes(nodes, id, "#FEF08A", Boolean(note));
+  wrapTextNodes(nodes, id, options.color, options.style, Boolean(options.note));
 
   return { id, text, context };
 };
@@ -276,21 +315,9 @@ export const hasActiveSelection = (): boolean => {
   return lastRange !== null && lastRange.toString().trim() !== "";
 };
 
-export const higlightSelectedText = (): {
-  id: string;
-  text: string;
-  context: string;
-} | null => {
-  if (!lastRange) return null;
-
-  const result = highlightRange(lastRange);
-  clearSelectionState();
-
-  return result;
-};
-
-export const highlightWithNote = (
-  note: string,
+export const higlightSelectedText = (
+  color: string,
+  style: HighlightStyle,
 ): {
   id: string;
   text: string;
@@ -298,10 +325,40 @@ export const highlightWithNote = (
 } | null => {
   if (!lastRange) return null;
 
-  const result = highlightRange(lastRange, note);
+  const result = highlightRange(lastRange, { color, style });
   clearSelectionState();
 
   return result;
+};
+
+export const highlightWithNote = (
+  note: string,
+  color: string,
+  style: HighlightStyle,
+): {
+  id: string;
+  text: string;
+  context: string;
+} | null => {
+  if (!lastRange) return null;
+
+  const result = highlightRange(lastRange, { color, style, note });
+  clearSelectionState();
+
+  return result;
+};
+
+// Recolor / restyle every span of an existing highlight in place. Used when the
+// palette acts on a selection that overlaps a highlight (which has no Highlight
+// button to apply through). The note marker, stored in the dataset, survives the
+// cssText reset; its icon color is re-synced to the new style.
+export const restyleHighlight = (id: string, color: string, style: HighlightStyle) => {
+  document.querySelectorAll<HTMLSpanElement>(`span[data-highlight-id="${id}"]`).forEach((span) => {
+    span.style.cssText = buildHighlightCss(color, style);
+    if (span.dataset.hasNote) {
+      syncNoteMarkerColor(span);
+    }
+  });
 };
 
 // Attach the note marker icon to an existing highlight, used when a note is
@@ -315,7 +372,9 @@ export const markHighlightHasNote = (id: string) => {
 
   ensureNoteMarkerStyle();
   spans.forEach((span) => delete span.dataset.hasNote);
-  spans[spans.length - 1].dataset.hasNote = "true";
+  const marker = spans[spans.length - 1];
+  marker.dataset.hasNote = "true";
+  syncNoteMarkerColor(marker);
 };
 
 export const removeHighlight = (id: string) => {
@@ -328,7 +387,7 @@ export const removeHighlight = (id: string) => {
 };
 
 const reapplyHighlight = (highlight: Highlight) => {
-  const { id, context, color } = highlight;
+  const { id, context, color, style } = highlight;
 
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const textNodes: Text[] = [];
@@ -399,7 +458,7 @@ const reapplyHighlight = (highlight: Highlight) => {
     });
   }
 
-  wrapTextNodes(affectedNodes, id, color, Boolean(highlight.note));
+  wrapTextNodes(affectedNodes, id, color, style ?? "default", Boolean(highlight.note));
 };
 
 export const loadPageHighlights = (): Promise<Highlight[]> => {
