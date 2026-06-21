@@ -3,41 +3,86 @@ import Button from "../shared/components/button/Button";
 import Icon from "../shared/components/icon/Icon";
 import Tooltip from "../shared/components/tooltip/Tooltip";
 import type { HighlightStyle } from "../shared/types";
-import Note from "./Note";
-import Palette from "./Palette";
-import { DEFAULT_HIGHLIGHT_COLOR, DEFAULT_HIGHLIGHT_STYLE } from "./paletteOptions";
+import Note from "./note/Note";
+import Palette from "./palette/Palette";
+import { DEFAULT_HIGHLIGHT_COLOR, DEFAULT_HIGHLIGHT_STYLE } from "./palette/paletteOptions";
 
+
+/**
+ * The toolbar that menages the highlight, restyle, delete, and note actions for a selected text.
+ */
 interface ToolbarProps {
+
   visible: boolean;
   x: number;
   y: number;
   canHighlight: boolean;
   canDelete: boolean;
-  // Existing note text for the selected highlight, prefilled into the editor.
   initialNote: string;
+
+  /**
+   * Highlights the selected text with the specified color and style.
+   * 
+   * @param color - the color to higlight the text.
+   * @param style - they style to higlight the text.
+   */
   onHighlight: (color: string, style: HighlightStyle) => void;
+
+  /**
+   * Handles the restyleing of an existing higlight. Sets the new color and style for the higlight.
+   * 
+   * @param color - The new color for the higlight.
+   * @param style - the new style for the higlight.
+   */
   onRestyle: (color: string, style: HighlightStyle) => void;
+
+  /**
+   * Deletes the selected text.
+   */
   onDelete: () => void;
+
+  /**
+   * Adds a new note.
+   * 
+   * @returns A boolean indicating wheather the note can be added.
+   */
   onAddNote: () => boolean;
+
+  /**
+   * Saves a note with the specified color and style.
+   * 
+   * @param note - The note to save.
+   * @param color - The color of the note.
+   * @param style - The style of the note.
+   * 
+   * @returns A boolean indicating whether the note was saved successfully.
+   */
   onSaveNote: (note: string, color: string, style: HighlightStyle) => void;
+}
+
+interface PaletteState {
+  show: boolean;
+  color: string;
+  style: HighlightStyle;
 }
 
 const Toolbar = ({ visible, x, y, canHighlight, canDelete, initialNote, onHighlight, onRestyle, onDelete, onAddNote, onSaveNote }: ToolbarProps) => {
   const [showNote, setShowNote] = useState<boolean>(false);
-  const [showPalette, setShowPalette] = useState<boolean>(false);
-  const [color, setColor] = useState<string>(DEFAULT_HIGHLIGHT_COLOR);
-  const [style, setStyle] = useState<HighlightStyle>(DEFAULT_HIGHLIGHT_STYLE);
+  const [paletteState, setPaletteState] = useState<PaletteState>({
+    show: false,
+    color: DEFAULT_HIGHLIGHT_COLOR,
+    style: DEFAULT_HIGHLIGHT_STYLE,
+  })
 
-  // The component stays mounted (it returns null while hidden), so reset the
-  // open popovers whenever the toolbar is dismissed — otherwise they would
-  // reopen with the next selection. Adjusting state during render is React's
-  // recommended pattern for resetting on a prop change.
   if (!visible) {
     if (showNote) {
       setShowNote(false);
     }
-    if (showPalette) {
-      setShowPalette(false);
+    if (paletteState.show) {
+      setPaletteState({
+        ...paletteState,
+        show: false
+      })
     }
     return null;
   }
@@ -53,20 +98,17 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, initialNote, onHighli
     setShowNote(false);
   };
 
-  // For a new selection the palette only stages the choice (applied when the
-  // Highlight button is clicked); when the selection overlaps an existing
-  // highlight there is no Highlight button, so apply to it immediately.
   const handleColorChange = (nextColor: string) => {
-    setColor(nextColor);
+    setPaletteState({...paletteState, color: nextColor });
     if (!canHighlight) {
-      onRestyle(nextColor, style);
+      onRestyle(nextColor, paletteState.style);
     }
   };
 
   const handleStyleChange = (nextStyle: HighlightStyle) => {
-    setStyle(nextStyle);
+    setPaletteState({...paletteState, style: nextStyle });
     if (!canHighlight) {
-      onRestyle(color, nextStyle);
+      onRestyle(paletteState.color, nextStyle);
     }
   };
 
@@ -76,34 +118,28 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, initialNote, onHighli
       style={{
         position: "fixed",
         left: x,
-        // Anchor by the bottom edge (10px above the selection top) so the
-        // toolbar — and the taller note — grow upward and stay above the text
-        // instead of covering it.
         bottom: `calc(100vh - ${y}px + 10px)`,
         transform: "translateX(-50%)",
         zIndex: 999999,
         pointerEvents: "auto",
       }}
     >
-      {/* Sits above the toolbar so it opens "over" the buttons. */}
-      <Palette show={showPalette && !showNote} color={color} style={style} onColorChange={handleColorChange} onStyleChange={handleStyleChange} />
+      <Palette show={paletteState.show && !showNote} color={paletteState.color} style={paletteState.style} onColorChange={handleColorChange} onStyleChange={handleStyleChange} />
 
       {!showNote && (
         <span id="actions">
           <div className="toolbarContainer">
-            {/* Hidden when the selection overlaps an existing highlight, to
-                prevent nested highlights. Note and color still act on the
-                existing highlight. */}
             {canHighlight && (
               <Tooltip text="Highlight" position="top">
-                <Button onClick={() => onHighlight(color, style)} iconOnly type="tonal" size="md">
+                <Button onClick={() => onHighlight(paletteState.color, paletteState.style)} iconOnly type="tonal" size="md">
                   <Icon name="marker" size={16} />
                 </Button>
               </Tooltip>
             )}
 
             <Tooltip text="Change Color" position="top">
-              <Button iconOnly type="tonal" size="md" onClick={() => setShowPalette(!showPalette)}>
+              <Button iconOnly type="tonal" size="md" 
+                onClick={() => setPaletteState({ ...paletteState, show: !paletteState.show })}>
                 <Icon name="palette" size={16} />
               </Button>
             </Tooltip>
@@ -125,7 +161,7 @@ const Toolbar = ({ visible, x, y, canHighlight, canDelete, initialNote, onHighli
         </span>
       )}
 
-      <Note show={showNote} initialValue={initialNote} onCancel={handleCancelNote} onSave={(note) => onSaveNote(note, color, style)} />
+      <Note show={showNote} initialValue={initialNote} onCancel={handleCancelNote} onSave={(note) => onSaveNote(note, paletteState.color, paletteState.style)} />
     </div>
   );
 };

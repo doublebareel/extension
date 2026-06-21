@@ -19,8 +19,6 @@
 }
 
 #noteViewerComponent {
-  // The edit button sits just outside the bubble's top-right corner, so the
-  // hover target needs the small padding to stay over both.
   padding: 6px;
 
   .noteViewerBubble {

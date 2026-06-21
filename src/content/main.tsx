@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import Toolbar from "./Toolbar";
-import NoteViewer from "./NoteViewer";
+import NoteViewer from "./note/NoteViewer";
 import {
   higlightSelectedText,
   highlightWithNote,

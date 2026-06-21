@@ -4,6 +4,10 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log("Extension installed");
 });
 
+chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: true })
+  .catch((error) => console.error(error));
+
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "ACTION_CLICKED") {
     const { id, text, url, context, color, style, note } = message.payload;

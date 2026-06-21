@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import type { HighlightStyle } from "../shared/types";
+import type { HighlightStyle } from "../../shared/types";
 import { PALETTE_COLORS } from "./paletteOptions";
 
 interface StyleOption {
@@ -22,9 +22,6 @@ interface PaletteProps {
   onStyleChange: (style: HighlightStyle) => void;
 }
 
-// How the chosen color renders for each style: a background fill for "default",
-// otherwise the color as the text-decoration line. Mirrors buildHighlightCss in
-// inject.ts so the tile preview matches what gets applied to the page.
 const previewStyleFor = (style: HighlightStyle, color: string): CSSProperties => {
   switch (style) {
     case "underline":
@@ -44,9 +41,6 @@ const Palette = (props: PaletteProps) => {
   const [open, setOpen] = useState<boolean>(false);
   const [prevShow, setPrevShow] = useState<boolean>(show);
 
-  // Reset to collapsed when dismissed (the component stays mounted) so the next
-  // open animates again. Adjusting state during render is React's recommended
-  // pattern for this.
   if (show !== prevShow) {
     setPrevShow(show);
     if (!show) {

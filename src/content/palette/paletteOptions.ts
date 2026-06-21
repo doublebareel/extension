@@ -1,4 +1,4 @@
-import type { HighlightStyle } from "../shared/types";
+import type { HighlightStyle } from "../../shared/types";
 
 // Eight highlight colors, laid out as two rows of four. The first is the
 // default so a highlight created without touching the palette stays yellow.

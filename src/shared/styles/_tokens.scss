@@ -1,7 +1,7 @@
-// Semantic color tokens shared across the popup, options page, and the
+// Semantic color tokens shared across the side panel, options page, and the
 // content-script toolbar.
 //
-// `:root` applies in the popup/options documents. `:host` applies inside the
+// `:root` applies in the side panel/options documents. `:host` applies inside the
 // content script's closed shadow root. CSS custom properties inherit across the
 // shadow boundary, so the toolbar picks these up through `:host`. Targeting both
 // selectors keeps a single source of truth — `:host` matches nothing in a normal
