@@ -27,7 +27,8 @@
     max-width: 280px;
     padding: 6px;
     border-radius: 6px;
-    background: var(--alpha-white-90);
+    background: #fff;
+    // background: var(--alpha-white-90);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
   }
 
@@ -119,8 +120,6 @@
     padding 280ms cubic-bezier(0.16, 1, 0.3, 1),
     opacity 180ms ease;
 
-  // Open by the bottom edge so the toolbar below stays put and the palette
-  // grows upward, over the buttons.
   &.paletteContainer--open {
     width: 220px;
     height: 128px;
