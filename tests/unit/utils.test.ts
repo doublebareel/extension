@@ -5,7 +5,9 @@ describe("normalizeUrl", () =>
 {
     it("strips the query string and hash from a url", () =>
     {
-        expect(normalizeUrl("https://example.com/page?foo=bar#section")).toBe(
+
+        const example = "https://example.com/page?foo=bar#section";
+        expect(normalizeUrl(example)).toBe(
             "https://example.com/page"
         );
     });
