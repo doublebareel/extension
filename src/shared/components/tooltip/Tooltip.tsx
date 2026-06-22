@@ -11,13 +11,7 @@ interface TooltipProps {
   spacing?: number;
 }
 
-const Tooltip = ({
-  text,
-  children,
-  position = "top",
-  arrow = false,
-  spacing = 8,
-}: TooltipProps) => {
+const Tooltip = ({ text, children, position = "top", arrow = false, spacing = 8 }: TooltipProps) => {
   const [visible, setVisible] = useState(false);
 
   const showTooltip = () => {
@@ -29,12 +23,7 @@ const Tooltip = ({
   };
 
   return (
-    <span
-      className="tooltip-wrapper"
-      onMouseEnter={showTooltip}
-      onMouseLeave={hideTooltip}
-      onClick={hideTooltip}
-    >
+    <span className="tooltip-wrapper" onMouseEnter={showTooltip} onMouseLeave={hideTooltip} onClick={hideTooltip}>
       {children}
 
       {visible && (

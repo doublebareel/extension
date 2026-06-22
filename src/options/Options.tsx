@@ -29,25 +29,14 @@ const Options = () => {
                 ))}
 
                 {SIZES.map((size) => (
-                  <Button
-                    key={`icon-${size}`}
-                    type={type}
-                    palette={palette}
-                    size={size}
-                  >
+                  <Button key={`icon-${size}`} type={type} palette={palette} size={size}>
                     <Icon name="marker" size={ICON_SIZE[size]} />
                     <span>Marker</span>
                   </Button>
                 ))}
 
                 {SIZES.map((size) => (
-                  <Button
-                    key={`icon-only-${size}`}
-                    type={type}
-                    palette={palette}
-                    size={size}
-                    iconOnly
-                  >
+                  <Button key={`icon-only-${size}`} type={type} palette={palette} size={size} iconOnly>
                     <Icon name="delete" size={ICON_SIZE[size]} />
                   </Button>
                 ))}

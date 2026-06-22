@@ -1,14 +1,22 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React from "react";
 import ReactDOM from "react-dom/client";
 import Toolbar from "./Toolbar";
+import NoteViewer from "./note/NoteViewer";
 import {
   higlightSelectedText,
-  setupHighlighter,
+  highlightWithNote,
+  hasActiveSelection,
   removeHighlight,
-  loadPageHighlights,
+  markHighlightHasNote,
+  clearSelectionState,
+  restyleHighlight,
 } from "./inject";
+import type { HighlightStyle } from "../shared/types";
 import styles from "./styles.scss?inline";
-import { normalizeUrl, type Theme } from "../shared/utils";
+import { buildCreatePayload, sendCreate, sendUpdateHighlight, sendUpdateNote, sendDelete } from "../shared/messaging";
+import useHighlightNotes from "./hooks/useHighlightNotes";
+import useNoteViewer from "./hooks/useNoteViewer";
+import useToolbar from "./hooks/useToolbar";
 
 const host = document.createElement("div");
 host.id = "my-extension-root";
@@ -24,79 +32,121 @@ const mountPoint = document.createElement("div");
 shadowRoot.appendChild(mountPoint);
 
 const HighlighterRoot = () => {
-  const [toolbarState, setToolbarState] = useState({
-    visible: false,
-    x: 0,
-    y: 0,
-    theme: "light" as Theme,
-    highlightId: null as string | null,
-  });
+  const notes = useHighlightNotes();
 
-  const hideToolbar = useCallback(() => {
-    setToolbarState((current) =>
-      current.visible ? { ...current, visible: false } : current,
-    );
-  }, []);
+  /*
+   * Order matters: useNoteViewer must be created before useToolbar, because the
+   * toolbar closes the viewer (via hideImmediately) whenever a fresh selection
+   * raises it. The two popovers must never coexist.
+   */
+  const viewer = useNoteViewer({ notesRef: notes.notesRef });
+  const toolbar = useToolbar({ onBeforeShow: viewer.hideImmediately });
 
-  useEffect(() => {
-    const renderToolbar = (
-      x: number,
-      y: number,
-      theme: Theme,
-      highlightId: string | null,
-    ) => {
-      setToolbarState({ visible: true, x, y, theme, highlightId });
-    };
-
-    setupHighlighter(renderToolbar, hideToolbar);
-    loadPageHighlights();
-  }, [hideToolbar]);
-
-  const onHighlight = () => {
-    const result = higlightSelectedText();
+  const onHighlight = (color: string, style: HighlightStyle) => {
+    const result = higlightSelectedText(color, style);
     if (!result) {
       return;
     }
 
-    chrome.runtime.sendMessage({
-      type: "ACTION_CLICKED",
-      payload: {
-        id: result.id,
-        text: result.text,
-        url: normalizeUrl(location.href),
-        context: result.context,
-        color: "yellow",
-      },
-    });
-    hideToolbar();
+    sendCreate(buildCreatePayload(result, color, style));
+    toolbar.hide();
+  };
+
+  const onRestyle = (color: string, style: HighlightStyle) => {
+    const id = toolbar.toolbarState.highlightId;
+    if (!id) {
+      return;
+    }
+
+    restyleHighlight(id, color, style);
+    sendUpdateHighlight({ id, color, style });
+  };
+
+  const onAddNote = (): boolean => {
+    return hasActiveSelection();
+  };
+
+  const onSaveNote = (note: string, color: string, style: HighlightStyle) => {
+    const existingId = toolbar.toolbarState.highlightId;
+    if (existingId) {
+      markHighlightHasNote(existingId);
+      notes.upsertNote(existingId, note);
+
+      sendUpdateNote({ id: existingId, note });
+
+      clearSelectionState();
+      toolbar.hide();
+      return;
+    }
+
+    const result = highlightWithNote(note, color, style);
+    if (!result) {
+      toolbar.hide();
+      return;
+    }
+
+    notes.upsertNote(result.id, note);
+
+    sendCreate(buildCreatePayload(result, color, style, note));
+    toolbar.hide();
   };
 
   const onDelete = () => {
-    const id = toolbarState.highlightId;
+    const id = toolbar.toolbarState.highlightId;
     if (!id) {
       return;
     }
 
     removeHighlight(id);
-    chrome.runtime.sendMessage({
-      type: "DELETE_HIGHLIGHT",
-      payload: { id },
-    });
+    sendDelete(id);
 
-    hideToolbar();
-    // setToolbarState((current) => ({ ...current, visible: false, highlightId: null }));
+    toolbar.hide();
+  };
+
+  const onClose = () => {
+    clearSelectionState();
+    toolbar.hide();
+  };
+
+  const onEditNote = (note: string) => {
+    const id = viewer.viewerState.highlightId;
+    if (!id) {
+      return;
+    }
+
+    notes.upsertNote(id, note);
+
+    sendUpdateNote({ id, note });
+
+    viewer.hide();
   };
 
   return (
-    <Toolbar
-      visible={toolbarState.visible}
-      x={toolbarState.x}
-      y={toolbarState.y}
-      theme={toolbarState.theme}
-      canDelete={toolbarState.highlightId !== null}
-      onHighlight={onHighlight}
-      onDelete={onDelete}
-    />
+    <>
+      <Toolbar
+        visible={toolbar.toolbarState.visible}
+        x={toolbar.toolbarState.x}
+        y={toolbar.toolbarState.y}
+        canHighlight={toolbar.toolbarState.canHighlight}
+        canDelete={toolbar.toolbarState.highlightId !== null}
+        initialNote={(toolbar.toolbarState.highlightId && notes.notes.get(toolbar.toolbarState.highlightId)) || ""}
+        onHighlight={onHighlight}
+        onRestyle={onRestyle}
+        onDelete={onDelete}
+        onAddNote={onAddNote}
+        onSaveNote={onSaveNote}
+        onClose={onClose}
+      />
+      <NoteViewer
+        visible={viewer.viewerState.visible}
+        x={viewer.viewerState.x}
+        y={viewer.viewerState.y}
+        note={viewer.viewerState.note}
+        onSave={onEditNote}
+        onMouseEnter={viewer.clearHideTimer}
+        onMouseLeave={viewer.scheduleHide}
+      />
+    </>
   );
 };
 

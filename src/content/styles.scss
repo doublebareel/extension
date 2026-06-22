@@ -9,12 +9,79 @@
   pointer-events: none;
   font-family: var(--font-family-sans-serif);
   font-weight: var(--font-weight-normal);
-
+  text-align: center;
   --icon-color: var(--color-neutral-900);
 }
 
-#toolbarComponent {
+#toolbarComponent,
+#noteViewerComponent {
   pointer-events: auto;
+}
+
+#noteViewerComponent {
+  padding: 6px;
+
+  .noteViewerBubble {
+    position: relative;
+    display: inline-block;
+    max-width: 280px;
+    padding: 6px;
+    border-radius: 6px;
+    background: #fff;
+    // background: var(--alpha-white-90);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+  }
+
+  .noteViewerText {
+    display: block;
+    box-sizing: border-box;
+    // Grow to fit the note instead of a fixed box; wraps once it hits max-width.
+    field-sizing: content;
+    min-width: 40px;
+    max-width: 264px;
+    max-height: 220px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-neutral-900);
+    font: var(--body-sm-regular);
+    line-height: 1.4;
+    resize: none;
+    outline: none;
+    overflow-y: auto;
+    cursor: default;
+  }
+
+  .noteViewerEdit {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-neutral-100, #fff);
+    color: var(--color-neutral-900);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    // Hidden until the note is hovered, so it stays out of the way while reading.
+    opacity: 0;
+    transition: opacity 120ms ease;
+
+    &:hover {
+      background: var(--color-neutral-200, #f0f0f0);
+    }
+  }
+
+  &:hover .noteViewerEdit,
+  .noteViewerEdit:focus-visible {
+    opacity: 1;
+  }
 }
 
 .toolbarContainer {
@@ -22,18 +89,156 @@
   align-items: center;
   gap: 0.25rem;
   background: var(--alpha-white-90);
-  padding: 4px 6px;
+  padding: 4px;
   border-radius: 8px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-  border: 1px solid var(--color-neutral-600);
+  border: 1px solid var(--color-neutral-400);
 
   .icon {
     --fill-icon-color: var(--icon-color);
   }
+}
 
-  &[data-theme="light"] {
-    background: var(--alpha-black-90, rgba(20, 20, 20, 0.9));
-    border-color: var(--color-neutral-700);
-    --icon-color: var(--color-neutral-100);
+#paletteContainer {
+  box-sizing: border-box;
+  overflow: hidden;
+  width: 0;
+  height: 0;
+  padding: 0;
+  margin-bottom: 0;
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--alpha-white-90);
+  border: 1px solid var(--color-neutral-400);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  transition:
+    width 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease;
+
+  &.paletteContainer--open {
+    width: 220px;
+    height: 128px;
+    padding: 10px;
+    margin-bottom: 6px;
+    opacity: 1;
+  }
+
+  .colorsPicker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .colorRow {
+    display: flex;
+    gap: 6px;
+  }
+
+  .colorSwatch {
+    flex: 1;
+    height: 26px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 120ms ease;
+
+    &:hover {
+      transform: scale(1.08);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-neutral-900);
+      outline-offset: 2px;
+    }
+
+    &.selected {
+      border-color: var(--color-neutral-900);
+      box-shadow: inset 0 0 0 2px var(--alpha-white-90);
+    }
+  }
+
+  .textStylePicker {
+    display: flex;
+    gap: 6px;
+  }
+
+  .tile {
+    flex: 1;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: #fff;
+    border: 1px solid var(--color-neutral-400);
+    border-radius: 6px;
+    cursor: pointer;
+    font: var(--body-sm-regular);
+    color: var(--color-neutral-900);
+
+    &:hover {
+      border-color: var(--color-neutral-700);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-neutral-900);
+      outline-offset: 2px;
+    }
+
+    &.active {
+      border: 2px solid var(--color-neutral-900);
+      background: var(--color-neutral-100);
+    }
+  }
+}
+
+#noteContainer {
+  box-sizing: border-box;
+  overflow: hidden;
+  width: 0;
+  height: 0;
+  padding: 0;
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--alpha-white-90);
+  border: 1px solid var(--color-neutral-400);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  transition:
+    width 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease;
+
+  &.noteContainer--open {
+    width: 280px;
+    height: 180px;
+    padding: 10px;
+    opacity: 1;
+  }
+
+  textarea {
+    box-sizing: border-box;
+    flex: 1;
+    width: 100%;
+    resize: none;
+    padding: 6px 8px;
+    border: 1px solid var(--color-neutral-400);
+    border-radius: 6px;
+    font: var(--body-sm-regular);
+  }
+
+  .noteContainerActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
   }
 }

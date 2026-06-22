@@ -12,6 +12,11 @@ interface ButtonProps {
   onClick?: () => void;
   disabled?: boolean;
   children?: React.ReactNode;
+  ariaLabel?: string;
+  ariaExpanded?: boolean;
+  ariaHasPopup?: boolean;
+  ariaPressed?: boolean;
+  title?: string;
 }
 
 const Button = (props: ButtonProps) => {
@@ -23,6 +28,11 @@ const Button = (props: ButtonProps) => {
     onClick,
     disabled = false,
     children,
+    ariaLabel,
+    ariaExpanded,
+    ariaHasPopup,
+    ariaPressed,
+    title,
   } = props;
 
   const className = `button button--${type} button--${palette} button--${size}${iconOnly ? " button--icon-only" : ""}`;
@@ -33,6 +43,11 @@ const Button = (props: ButtonProps) => {
       className={className}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      aria-expanded={ariaExpanded}
+      aria-haspopup={ariaHasPopup}
+      aria-pressed={ariaPressed}
+      title={title}
     >
       {children}
     </button>

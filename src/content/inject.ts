@@ -1,19 +1,83 @@
-import type { Highlight } from "../shared/types";
-import {
-  normalizeUrl,
-  detectBackgroundTheme,
-  type Theme,
-} from "../shared/utils";
+import type { Highlight, HighlightStyle } from "../shared/types";
+import { normalizeUrl } from "../shared/utils";
+import commentIcon from "../../public/icons/comment-lines.svg?raw";
 
 interface RenderToolbarCallback {
-  (x: number, y: number, theme: Theme, highlightId: string | null): void;
+  (x: number, y: number, highlightId: string | null, canHighlight: boolean): void;
 }
 interface HideToolbarCallback {
   (): void;
 }
 
+// Id of the host element that holds our (closed) shadow root. Used to tell
+// apart interactions with our own UI from interactions with the page.
+const EXTENSION_HOST_ID = "my-extension-root";
+
 let hideTimer: ReturnType<typeof setTimeout> | null = null;
-let globalSelection: Selection | null = null;
+// A frozen clone of the most recent page selection. We hold our own Range so it
+// survives the page selection collapsing when the user focuses the note
+// textarea (which lives in our shadow DOM).
+let lastRange: Range | null = null;
+
+// Highlights live in the host page DOM (not our shadow DOM) and are styled with
+// inline styles, which cannot express a ::after. The note marker therefore needs
+// a real stylesheet injected into the page once, keyed off `data-has-note`. The
+// icon is drawn as a CSS mask (the SVG only supplies the shape) so its color
+// comes from `background-color`, which a per-span `--note-marker-color` variable
+// drives — letting the icon match the highlight color for the line styles while
+// falling back to a dark fill for the default (background-filled) style.
+const noteMarkerDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(commentIcon.replace(/currentColor/g, "#000"))}`;
+
+let markerStyleInjected = false;
+
+const ensureNoteMarkerStyle = () => {
+  if (markerStyleInjected) {
+    return;
+  }
+  markerStyleInjected = true;
+
+  const style = document.createElement("style");
+  style.id = "highlighter-note-marker-style";
+  style.textContent = `span[data-has-note]::after {
+  content: "";
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background-color: var(--note-marker-color, #1a1a1a);
+  -webkit-mask-image: url("${noteMarkerDataUri}");
+  mask-image: url("${noteMarkerDataUri}");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}`;
+  (document.head ?? document.documentElement).appendChild(style);
+};
+
+// Tint the note marker icon to match the highlight color for the line styles
+// (which expose a text-decoration-color); the default style has none, so the
+// variable is cleared and the icon keeps its standard dark fill.
+const syncNoteMarkerColor = (span: HTMLSpanElement) => {
+  const decorationColor = span.style.textDecorationColor;
+  if (decorationColor) {
+    span.style.setProperty("--note-marker-color", decorationColor);
+  } else {
+    span.style.removeProperty("--note-marker-color");
+  }
+};
+
+const isEventFromExtension = (event: Event): boolean => {
+  return event.composedPath().some((target) => target instanceof HTMLElement && target.id === EXTENSION_HOST_ID);
+};
+
+export const clearSelectionState = () => {
+  lastRange = null;
+  window.getSelection()?.removeAllRanges();
+};
 
 const clearHideTimer = () => {
   if (hideTimer !== null) {
@@ -30,118 +94,156 @@ const scheduleHide = (hideToolbar: HideToolbarCallback) => {
   }, 120);
 };
 
-const getSelectionToolbarPosition = (): {
+interface ToolbarPosition {
   x: number;
   y: number;
-  theme: Theme;
   highlightId: string | null;
-} | null => {
-  const selection = window.getSelection();
+  canHighlight: boolean;
+}
 
-  if (
-    !selection ||
-    selection.isCollapsed ||
-    selection.rangeCount === 0 ||
-    selection.toString().trim() === ""
-  ) {
-    return null;
+// The id of an existing highlight the range overlaps — whether the selection
+// sits entirely inside it or merely crosses into it. Lets the toolbar target
+// the whole highlight (delete, note, recolor) instead of nesting a new one.
+const getOverlappingHighlightId = (range: Range): string | null => {
+  const container = range.commonAncestorContainer;
+  const containerElement = container.nodeType === Node.TEXT_NODE ? container.parentElement : (container as Element);
+
+  // The whole selection may live inside an existing highlight.
+  const inside = containerElement?.closest("span[data-highlight-id]");
+  if (inside) {
+    return inside.getAttribute("data-highlight-id");
   }
 
-  const range = selection.getRangeAt(0);
+  // Or it may only partially overlap a highlight nested below the common
+  // ancestor; pick the first one the range intersects.
+  const scope = containerElement ?? document.body;
+  const overlapping = Array.from(scope.querySelectorAll("span[data-highlight-id]")).find((highlight) =>
+    range.intersectsNode(highlight),
+  );
+  return overlapping?.getAttribute("data-highlight-id") ?? null;
+};
+
+const computeToolbarPosition = (range: Range): ToolbarPosition | null => {
   const rect = range.getBoundingClientRect();
 
   if (rect.width === 0 && rect.height === 0) {
     return null;
   }
 
-  // Sample the element that actually holds the selected text so we read the
-  // background behind the selection (e.g. a dark code block on a light page).
-  const anchor = range.commonAncestorContainer;
-  const element =
-    anchor.nodeType === Node.TEXT_NODE
-      ? anchor.parentElement
-      : (anchor as Element);
-  const theme = detectBackgroundTheme(element);
+  // When the selection overlaps an existing highlight, the toolbar acts on that
+  // whole highlight; a new highlight cannot be created (which would nest).
+  const highlightId = getOverlappingHighlightId(range);
+  const canHighlight = highlightId === null;
 
-  // Only worth offering "Delete" when the selection sits inside an existing
-  // highlight, so the toolbar can hide the button otherwise.
-  const highlightId =
-    element
-      ?.closest("span[data-highlight-id]")
-      ?.getAttribute("data-highlight-id") ?? null;
-
-  return { x: rect.left + rect.width / 2, y: rect.top, theme, highlightId };
+  return { x: rect.left + rect.width / 2, y: rect.top, highlightId, canHighlight };
 };
 
-const handleSelectionChange = (
-  renderToolbar: RenderToolbarCallback,
-  hideToolbar: HideToolbarCallback,
-) => {
+const getLiveSelectionRange = (): Range | null => {
+  const selection = window.getSelection();
+
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0 || selection.toString().trim() === "") {
+    return null;
+  }
+
+  return selection.getRangeAt(0);
+};
+
+const getSelectionToolbarPosition = (): ToolbarPosition | null => {
+  const range = getLiveSelectionRange();
+  return range ? computeToolbarPosition(range) : null;
+};
+
+const handleSelectionChange = (renderToolbar: RenderToolbarCallback, hideToolbar: HideToolbarCallback) => {
   const position = getSelectionToolbarPosition();
 
   if (!position) {
+    // The selection is gone, so drop the frozen range too — otherwise a later
+    // scroll could resurrect the toolbar from a stale position.
+    lastRange = null;
     scheduleHide(hideToolbar);
     return;
   }
 
   clearHideTimer();
-  renderToolbar(position.x, position.y, position.theme, position.highlightId);
+  renderToolbar(position.x, position.y, position.highlightId, position.canHighlight);
 };
 
 const handleReposition = (renderToolbar: RenderToolbarCallback) => {
-  const position = getSelectionToolbarPosition();
+  // Fall back to the frozen range so the toolbar keeps tracking the selection
+  // while the note is open (focusing the textarea collapses the live selection)
+  // and after Cancel until the toolbar is dismissed.
+  const range = getLiveSelectionRange() ?? lastRange;
+
+  if (!range) {
+    return;
+  }
+
+  const position = computeToolbarPosition(range);
 
   if (!position) {
     return;
   }
 
-  renderToolbar(position.x, position.y, position.theme, position.highlightId);
+  renderToolbar(position.x, position.y, position.highlightId, position.canHighlight);
 };
 
 export const setupHighlighter = (
   renderToolbar: RenderToolbarCallback,
   hideToolbar: HideToolbarCallback,
-) => {
-  document.addEventListener("mouseup", () => {
+): (() => void) => {
+  const handleMouseUp = (event: MouseEvent) => {
+    // Clicks inside our own toolbar/note must not be treated as the page losing
+    // its selection, otherwise interacting with the note hides the toolbar.
+    if (isEventFromExtension(event)) {
+      return;
+    }
+
     handleSelectionChange(renderToolbar, hideToolbar);
     const selection = document.getSelection();
-    if (
-      selection &&
-      selection.rangeCount !== 0 &&
-      selection.toString() !== ""
-    ) {
-      globalSelection = selection;
+    if (selection && selection.rangeCount !== 0 && selection.toString().trim() !== "") {
+      lastRange = selection.getRangeAt(0).cloneRange();
     }
-  });
+  };
 
-  document.addEventListener(
-    "scroll",
-    () => {
+  let scrollFrame: number | null = null;
+  const handleScroll = () => {
+    if (scrollFrame !== null) {
+      return;
+    }
+    scrollFrame = requestAnimationFrame(() => {
+      scrollFrame = null;
       handleReposition(renderToolbar);
-    },
-    { capture: true, passive: true },
-  );
+    });
+  };
+
+  document.addEventListener("mouseup", handleMouseUp);
+  document.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+
+  return () => {
+    document.removeEventListener("mouseup", handleMouseUp);
+    document.removeEventListener("scroll", handleScroll, { capture: true });
+    if (scrollFrame !== null) {
+      cancelAnimationFrame(scrollFrame);
+      scrollFrame = null;
+    }
+  };
 };
 
-const getTextNodesInRange = (
-  range: Range,
-): Array<{ node: Text; startOffset: number; endOffset: number }> => {
+const getTextNodesInRange = (range: Range): Array<{ node: Text; startOffset: number; endOffset: number }> => {
   const ancestor =
     range.commonAncestorContainer.nodeType === Node.TEXT_NODE
       ? range.commonAncestorContainer.parentElement!
       : (range.commonAncestorContainer as Element);
 
   const walker = document.createTreeWalker(ancestor, NodeFilter.SHOW_TEXT);
-  const result: Array<{ node: Text; startOffset: number; endOffset: number }> =
-    [];
+  const result: Array<{ node: Text; startOffset: number; endOffset: number }> = [];
 
   let node: Text;
   while ((node = walker.nextNode() as Text)) {
     if (!range.intersectsNode(node)) continue;
 
     const startOffset = node === range.startContainer ? range.startOffset : 0;
-    const endOffset =
-      node === range.endContainer ? range.endOffset : node.length;
+    const endOffset = node === range.endContainer ? range.endOffset : node.length;
 
     if (startOffset === endOffset) continue;
 
@@ -165,38 +267,68 @@ const extractContext = (range: Range): string => {
   return `${before}[[[${range.toString()}]]]${after}`;
 };
 
+// Inline styles for a highlight span. "default" fills the background (and forces
+// readable black text); the line styles use the color as the decoration color
+// and leave the background — and the page's own text color — untouched.
+const buildHighlightCss = (color: string, style: HighlightStyle): string => {
+  switch (style) {
+    case "underline":
+      return `display:inline; text-decoration-line:underline; text-decoration-style:solid; text-decoration-color:${color}; text-decoration-thickness:3px;`;
+    case "wave":
+      return `display:inline; text-decoration-line:underline; text-decoration-style:wavy; text-decoration-color:${color};`;
+    case "strike":
+      return `display:inline; text-decoration-line:line-through; text-decoration-color:${color}; text-decoration-thickness: 3px;`;
+    default:
+      return `display:inline; background-color:${color}; color:#000 !important;`;
+  }
+};
+
 const wrapTextNodes = (
   nodes: Array<{ node: Text; startOffset: number; endOffset: number }>,
   id: string,
   color: string,
+  style: HighlightStyle,
+  hasNote = false,
 ) => {
+  const spans: HTMLSpanElement[] = [];
+
   for (const { node, startOffset, endOffset } of nodes) {
     // Trim the tail first so startOffset is still valid for the original node
     if (endOffset < node.length) {
       node.splitText(endOffset);
     }
 
-    const targetNode: Text =
-      startOffset > 0 ? node.splitText(startOffset) : node;
+    const targetNode: Text = startOffset > 0 ? node.splitText(startOffset) : node;
 
     const span = document.createElement("span");
     span.dataset.highlightId = id;
-    span.style.cssText = `background-color:${color};display:inline;`;
+    span.style.cssText = buildHighlightCss(color, style);
 
     targetNode.parentNode!.insertBefore(span, targetNode);
     span.appendChild(targetNode);
+    spans.push(span);
+  }
+
+  // A highlight can span several text nodes (and thus several spans). Mark only
+  // the last one so the note icon renders once, at the end of the highlight.
+  if (hasNote && spans.length > 0) {
+    ensureNoteMarkerStyle();
+    const marker = spans[spans.length - 1];
+    marker.dataset.hasNote = "true";
+    syncNoteMarkerColor(marker);
   }
 };
 
-export const higlightSelectedText = (): {
-  id: string;
-  text: string;
-  context: string;
-} | null => {
-  const selection = globalSelection;
-  if (!selection || selection.rangeCount === 0) return null;
+interface HighlightOptions {
+  color: string;
+  style: HighlightStyle;
+  note?: string;
+}
 
-  const range = selection.getRangeAt(0);
+const highlightRange = (
+  range: Range,
+  options: HighlightOptions,
+): { id: string; text: string; context: string } | null => {
   const text = range.toString().trim();
   if (!text) return null;
 
@@ -204,27 +336,90 @@ export const higlightSelectedText = (): {
   const context = extractContext(range);
   const nodes = getTextNodesInRange(range);
 
-  wrapTextNodes(nodes, id, "yellow");
-
-  selection.removeAllRanges();
-  globalSelection = null;
+  wrapTextNodes(nodes, id, options.color, options.style, Boolean(options.note));
 
   return { id, text, context };
 };
 
+// Whether there is a captured selection the toolbar can act on. The note flow
+// uses this to decide whether opening the note is meaningful.
+export const hasActiveSelection = (): boolean => {
+  return lastRange !== null && lastRange.toString().trim() !== "";
+};
+
+export const higlightSelectedText = (
+  color: string,
+  style: HighlightStyle,
+): {
+  id: string;
+  text: string;
+  context: string;
+} | null => {
+  if (!lastRange) return null;
+
+  const result = highlightRange(lastRange, { color, style });
+  clearSelectionState();
+
+  return result;
+};
+
+export const highlightWithNote = (
+  note: string,
+  color: string,
+  style: HighlightStyle,
+): {
+  id: string;
+  text: string;
+  context: string;
+} | null => {
+  if (!lastRange) return null;
+
+  const result = highlightRange(lastRange, { color, style, note });
+  clearSelectionState();
+
+  return result;
+};
+
+// Recolor / restyle every span of an existing highlight in place. Used when the
+// palette acts on a selection that overlaps a highlight (which has no Highlight
+// button to apply through). The note marker, stored in the dataset, survives the
+// cssText reset; its icon color is re-synced to the new style.
+export const restyleHighlight = (id: string, color: string, style: HighlightStyle) => {
+  document.querySelectorAll<HTMLSpanElement>(`span[data-highlight-id="${id}"]`).forEach((span) => {
+    span.style.cssText = buildHighlightCss(color, style);
+    if (span.dataset.hasNote) {
+      syncNoteMarkerColor(span);
+    }
+  });
+};
+
+// Attach the note marker icon to an existing highlight, used when a note is
+// added to a highlight that didn't have one. The marker renders once, on the
+// last span of the (possibly multi-span) highlight.
+export const markHighlightHasNote = (id: string) => {
+  const spans = document.querySelectorAll<HTMLSpanElement>(`span[data-highlight-id="${id}"]`);
+  if (spans.length === 0) {
+    return;
+  }
+
+  ensureNoteMarkerStyle();
+  spans.forEach((span) => delete span.dataset.hasNote);
+  const marker = spans[spans.length - 1];
+  marker.dataset.hasNote = "true";
+  syncNoteMarkerColor(marker);
+};
+
 export const removeHighlight = (id: string) => {
-  document
-    .querySelectorAll(`span[data-highlight-id="${id}"]`)
-    .forEach((span) => {
-      while (span.firstChild) {
-        span.parentNode!.insertBefore(span.firstChild, span);
-      }
-      span.parentNode!.removeChild(span);
-    });
+  document.querySelectorAll(`span[data-highlight-id="${id}"]`).forEach((span) => {
+    while (span.firstChild) {
+      span.parentNode!.insertBefore(span.firstChild, span);
+    }
+    span.parentNode!.removeChild(span);
+  });
 };
 
 const reapplyHighlight = (highlight: Highlight) => {
-  const { id, context, color } = highlight;
+  const { id, context, color, style } = highlight;
 
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const textNodes: Text[] = [];
@@ -272,10 +467,7 @@ const reapplyHighlight = (highlight: Highlight) => {
     return;
   }
 
-  const selectedText = context.slice(
-    context.indexOf(openMarker) + openMarker.length,
-    context.indexOf(closeMarker),
-  );
+  const selectedText = context.slice(context.indexOf(openMarker) + openMarker.length, context.indexOf(closeMarker));
   const highlightEnd = highlightStart + selectedText.length;
 
   // Find which text nodes cover [highlightStart, highlightEnd]
@@ -298,15 +490,69 @@ const reapplyHighlight = (highlight: Highlight) => {
     });
   }
 
-  wrapTextNodes(affectedNodes, id, color);
+  wrapTextNodes(affectedNodes, id, color, style ?? "default", Boolean(highlight.note));
 };
 
-export const loadPageHighlights = () => {
-  chrome.storage.local.get("highlights", (result) => {
-    const highlights: Highlight[] = (result.highlights as Highlight[]) ?? [];
-    const currentUrl = normalizeUrl(location.href);
-    highlights.filter((h) => h.url === currentUrl).forEach(reapplyHighlight);
+export const loadPageHighlights = (): Promise<Highlight[]> => {
+  return new Promise((resolve) => {
+    chrome.storage.local.get("highlights", (result) => {
+      const highlights: Highlight[] = (result.highlights as Highlight[]) ?? [];
+      const currentUrl = normalizeUrl(location.href);
+      const pageHighlights = highlights.filter((highlight) => highlight.url === currentUrl);
+      pageHighlights.forEach(reapplyHighlight);
+      resolve(pageHighlights);
+    });
   });
+};
+
+interface ShowNoteCallback {
+  (x: number, y: number, highlightId: string): void;
+}
+
+// Watches for the pointer entering a highlight so the caller can show that
+// highlight's note. The caller decides whether a note actually exists for the
+// id; we only report the hover and where to anchor the popover.
+export const setupNoteHover = (showNote: ShowNoteCallback, hideNote: () => void): (() => void) => {
+  const handleOver = (event: MouseEvent) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const span = target.closest("span[data-highlight-id]");
+    if (!span) {
+      return;
+    }
+
+    const id = span.getAttribute("data-highlight-id");
+    if (!id) {
+      return;
+    }
+
+    const rect = span.getBoundingClientRect();
+    showNote(rect.left + rect.width / 2, rect.top, id);
+  };
+
+  const handleOut = (event: MouseEvent) => {
+    const related = event.relatedTarget;
+    // Keep the note open while moving within the same highlight, or into our own
+    // UI — the popover lives in the shadow DOM, so its events retarget to the host.
+    if (
+      related instanceof Element &&
+      (related.closest("span[data-highlight-id]") || related.id === EXTENSION_HOST_ID)
+    ) {
+      return;
+    }
+    hideNote();
+  };
+
+  document.addEventListener("mouseover", handleOver);
+  document.addEventListener("mouseout", handleOut);
+
+  return () => {
+    document.removeEventListener("mouseover", handleOver);
+    document.removeEventListener("mouseout", handleOut);
+  };
 };
 
 export const getSelectedHighlightId = (): string | null => {
@@ -316,8 +562,7 @@ export const getSelectedHighlightId = (): string | null => {
   const node = selection.anchorNode;
   if (!node) return null;
 
-  const el =
-    node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element);
+  const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element);
   const span = el?.closest("span[data-highlight-id]");
   return span?.getAttribute("data-highlight-id") ?? null;
 };
