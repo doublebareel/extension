@@ -27,7 +27,11 @@ const Tooltip = ({ text, children, position = "top", arrow = false, spacing = 8 
       {children}
 
       {visible && (
-        <span role="tooltip" className={`tooltip tooltip--${position}`} style={{ "--tooltip-spacing": `${spacing}px` } as React.CSSProperties}>
+        <span
+          role="tooltip"
+          className={`tooltip tooltip--${position}`}
+          style={{ "--tooltip-spacing": `${spacing}px` } as React.CSSProperties}
+        >
           {text}
           {arrow && <span className="tooltip-arrow" />}
         </span>

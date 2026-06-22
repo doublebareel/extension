@@ -1,25 +1,38 @@
 const TRACKING_PARAMS = [
-  'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-  'fbclid', 'gclid', 'gclsrc', 'dclid', 'ref', 'ref_src',
-  '_ga', 'mc_cid', 'mc_eid', 'igshid', 'feature', 'share'
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "fbclid",
+  "gclid",
+  "gclsrc",
+  "dclid",
+  "ref",
+  "ref_src",
+  "_ga",
+  "mc_cid",
+  "mc_eid",
+  "igshid",
+  "feature",
+  "share",
 ];
 
 export function normalizeUrl(rawUrl: string): string {
   const u = new URL(rawUrl);
 
-  u.hash = '';
+  u.hash = "";
   u.hostname = u.hostname.toLowerCase();
-  if (u.protocol === 'http:') {
-    u.protocol = 'https:';
+  if (u.protocol === "http:") {
+    u.protocol = "https:";
   }
 
-  TRACKING_PARAMS.forEach(p => u.searchParams.delete(p));
-
+  TRACKING_PARAMS.forEach((p) => u.searchParams.delete(p));
 
   u.searchParams.sort();
 
   // normalize trailing slash
-  if (u.pathname.length > 1 && u.pathname.endsWith('/')) {
+  if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
     u.pathname = u.pathname.slice(0, -1);
   }
 

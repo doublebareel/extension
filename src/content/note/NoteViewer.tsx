@@ -24,7 +24,7 @@ const NoteViewer = (props: NoteViewerProps) => {
   const [noteViewerState, setNoteViewerState] = useState<NoteViewerState>({
     editing: false,
     prevNote: note,
-    prevVisible: visible
+    prevVisible: visible,
   });
 
   if (note !== noteViewerState.prevNote || visible !== noteViewerState.prevVisible) {
@@ -32,7 +32,7 @@ const NoteViewer = (props: NoteViewerProps) => {
       ...noteViewerState,
       prevNote: note,
       prevVisible: visible,
-      editing: visible ? false : noteViewerState.editing
+      editing: visible ? false : noteViewerState.editing,
     });
   }
 
@@ -65,7 +65,12 @@ const NoteViewer = (props: NoteViewerProps) => {
       ) : (
         <div className="noteViewerBubble">
           <textarea className="noteViewerText" value={note} readOnly rows={1} />
-          <button type="button" className="noteViewerEdit" aria-label="Edit note" onClick={() => setNoteViewerState({ ...noteViewerState, editing: true })}>
+          <button
+            type="button"
+            className="noteViewerEdit"
+            aria-label="Edit note"
+            onClick={() => setNoteViewerState({ ...noteViewerState, editing: true })}
+          >
             <Icon name="edit" size={12} />
           </button>
         </div>

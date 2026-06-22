@@ -117,7 +117,9 @@ const getOverlappingHighlightId = (range: Range): string | null => {
   // Or it may only partially overlap a highlight nested below the common
   // ancestor; pick the first one the range intersects.
   const scope = containerElement ?? document.body;
-  const overlapping = Array.from(scope.querySelectorAll("span[data-highlight-id]")).find((highlight) => range.intersectsNode(highlight));
+  const overlapping = Array.from(scope.querySelectorAll("span[data-highlight-id]")).find((highlight) =>
+    range.intersectsNode(highlight),
+  );
   return overlapping?.getAttribute("data-highlight-id") ?? null;
 };
 
@@ -210,7 +212,10 @@ export const setupHighlighter = (renderToolbar: RenderToolbarCallback, hideToolb
 };
 
 const getTextNodesInRange = (range: Range): Array<{ node: Text; startOffset: number; endOffset: number }> => {
-  const ancestor = range.commonAncestorContainer.nodeType === Node.TEXT_NODE ? range.commonAncestorContainer.parentElement! : (range.commonAncestorContainer as Element);
+  const ancestor =
+    range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+      ? range.commonAncestorContainer.parentElement!
+      : (range.commonAncestorContainer as Element);
 
   const walker = document.createTreeWalker(ancestor, NodeFilter.SHOW_TEXT);
   const result: Array<{ node: Text; startOffset: number; endOffset: number }> = [];
@@ -260,7 +265,13 @@ const buildHighlightCss = (color: string, style: HighlightStyle): string => {
   }
 };
 
-const wrapTextNodes = (nodes: Array<{ node: Text; startOffset: number; endOffset: number }>, id: string, color: string, style: HighlightStyle, hasNote = false) => {
+const wrapTextNodes = (
+  nodes: Array<{ node: Text; startOffset: number; endOffset: number }>,
+  id: string,
+  color: string,
+  style: HighlightStyle,
+  hasNote = false,
+) => {
   const spans: HTMLSpanElement[] = [];
 
   for (const { node, startOffset, endOffset } of nodes) {
@@ -296,7 +307,10 @@ interface HighlightOptions {
   note?: string;
 }
 
-const highlightRange = (range: Range, options: HighlightOptions): { id: string; text: string; context: string } | null => {
+const highlightRange = (
+  range: Range,
+  options: HighlightOptions,
+): { id: string; text: string; context: string } | null => {
   const text = range.toString().trim();
   if (!text) return null;
 
@@ -505,7 +519,10 @@ export const setupNoteHover = (showNote: ShowNoteCallback, hideNote: () => void)
     const related = event.relatedTarget;
     // Keep the note open while moving within the same highlight, or into our own
     // UI — the popover lives in the shadow DOM, so its events retarget to the host.
-    if (related instanceof Element && (related.closest("span[data-highlight-id]") || related.id === EXTENSION_HOST_ID)) {
+    if (
+      related instanceof Element &&
+      (related.closest("span[data-highlight-id]") || related.id === EXTENSION_HOST_ID)
+    ) {
       return;
     }
     hideNote();

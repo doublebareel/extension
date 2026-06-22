@@ -20,10 +20,10 @@ const Note = (props: NoteProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [noteState, setNoteState] = useState<NoteState>({
-    open:false,
+    open: false,
     value: initialValue,
-    prevShow: show
-  })
+    prevShow: show,
+  });
 
   if (show !== noteState.prevShow) {
     setNoteState({
@@ -42,7 +42,7 @@ const Note = (props: NoteProps) => {
     const frame = requestAnimationFrame(() => {
       setNoteState({
         ...noteState,
-        open: true
+        open: true,
       });
 
       const textarea = textareaRef.current;
@@ -69,26 +69,30 @@ const Note = (props: NoteProps) => {
   const handleValueChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     setNoteState({
       ...noteState,
-      value: event.target.value
-    })
+      value: event.target.value,
+    });
   };
 
   return (
     <div id="noteContainer" className={noteState.open ? "noteContainer--open" : ""}>
-      <textarea 
-        ref={textareaRef} 
-        placeholder="Add your note here..." 
-        rows={4} value={noteState.value} 
-        onChange={handleValueChange}>
-      
-      </textarea>
+      <textarea
+        ref={textareaRef}
+        placeholder="Add your note here..."
+        rows={4}
+        value={noteState.value}
+        onChange={handleValueChange}
+      ></textarea>
       <div className="noteContainerActions">
         <Button palette="secondary" type="default" size="md" onClick={onCancel}>
           Cancel
         </Button>
-        <Button palette="primary" type="default" size="md" 
-          disabled={noteState.value.trim() === ""} 
-          onClick={handleSave}>
+        <Button
+          palette="primary"
+          type="default"
+          size="md"
+          disabled={noteState.value.trim() === ""}
+          onClick={handleSave}
+        >
           Save
         </Button>
       </div>

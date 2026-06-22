@@ -13,13 +13,7 @@ import {
 } from "./inject";
 import type { HighlightStyle } from "../shared/types";
 import styles from "./styles.scss?inline";
-import {
-  buildCreatePayload,
-  sendCreate,
-  sendUpdateHighlight,
-  sendUpdateNote,
-  sendDelete,
-} from "../shared/messaging";
+import { buildCreatePayload, sendCreate, sendUpdateHighlight, sendUpdateNote, sendDelete } from "../shared/messaging";
 import useHighlightNotes from "./hooks/useHighlightNotes";
 import useNoteViewer from "./hooks/useNoteViewer";
 import useToolbar from "./hooks/useToolbar";
@@ -41,10 +35,10 @@ const HighlighterRoot = () => {
   const notes = useHighlightNotes();
 
   /*
-  * Order matters: useNoteViewer must be created before useToolbar, because the
-  * toolbar closes the viewer (via hideImmediately) whenever a fresh selection
-  * raises it. The two popovers must never coexist.
-  */
+   * Order matters: useNoteViewer must be created before useToolbar, because the
+   * toolbar closes the viewer (via hideImmediately) whenever a fresh selection
+   * raises it. The two popovers must never coexist.
+   */
   const viewer = useNoteViewer({ notesRef: notes.notesRef });
   const toolbar = useToolbar({ onBeforeShow: viewer.hideImmediately });
 
@@ -137,7 +131,15 @@ const HighlighterRoot = () => {
         onAddNote={onAddNote}
         onSaveNote={onSaveNote}
       />
-      <NoteViewer visible={viewer.viewerState.visible} x={viewer.viewerState.x} y={viewer.viewerState.y} note={viewer.viewerState.note} onSave={onEditNote} onMouseEnter={viewer.clearHideTimer} onMouseLeave={viewer.scheduleHide} />
+      <NoteViewer
+        visible={viewer.viewerState.visible}
+        x={viewer.viewerState.x}
+        y={viewer.viewerState.y}
+        note={viewer.viewerState.note}
+        onSave={onEditNote}
+        onMouseEnter={viewer.clearHideTimer}
+        onMouseLeave={viewer.scheduleHide}
+      />
     </>
   );
 };

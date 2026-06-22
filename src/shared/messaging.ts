@@ -7,16 +7,16 @@ export interface UpdateHighlightPayload {
   id: string;
   color: string;
   style: HighlightStyle;
-};
+}
 
 export interface UpdateNotePayload {
   id: string;
   note: string;
-};
+}
 
 export interface DeleteHighlightPayload {
   id: string;
-};
+}
 
 export type ExtensionMessage =
   | { type: "ACTION_CLICKED"; payload: CreateHighlightPayload }
@@ -28,10 +28,14 @@ export interface HighlightResult {
   id: string;
   text: string;
   context: string;
-};
+}
 
-export const buildCreatePayload = (result: HighlightResult, color: string,style: HighlightStyle,note?: string): CreateHighlightPayload =>
-{
+export const buildCreatePayload = (
+  result: HighlightResult,
+  color: string,
+  style: HighlightStyle,
+  note?: string,
+): CreateHighlightPayload => {
   return {
     id: result.id,
     text: result.text,
@@ -44,10 +48,10 @@ export const buildCreatePayload = (result: HighlightResult, color: string,style:
 };
 
 export const sendCreate = (payload: CreateHighlightPayload) => {
-  chrome.runtime.sendMessage({ 
+  chrome.runtime.sendMessage({
     type: "ACTION_CLICKED",
-    payload 
-    });
+    payload,
+  });
 };
 
 export const sendUpdateHighlight = (payload: UpdateHighlightPayload) => {
