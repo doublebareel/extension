@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "../shared/components/button/Button";
 import Icon from "../shared/components/icon/Icon";
 import Tooltip from "../shared/components/tooltip/Tooltip";
@@ -56,7 +56,19 @@ interface ToolbarProps {
    * @returns A boolean indicating whether the note was saved successfully.
    */
   onSaveNote: (note: string, color: string, style: HighlightStyle) => void;
+
+  /**
+   * Dismisses the toolbar entirely (when the user presses esc)
+   */
+  onClose: () => void;
 }
+
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const getFocusableElements = (container: HTMLElement): HTMLElement[] => {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+};
 
 interface PaletteState {
   show: boolean;
@@ -76,6 +88,7 @@ const Toolbar = ({
   onDelete,
   onAddNote,
   onSaveNote,
+  onClose,
 }: ToolbarProps) => {
   const [showNote, setShowNote] = useState<boolean>(false);
   const [paletteState, setPaletteState] = useState<PaletteState>({
@@ -83,6 +96,84 @@ const Toolbar = ({
     color: DEFAULT_HIGHLIGHT_COLOR,
     style: DEFAULT_HIGHLIGHT_STYLE,
   });
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * When the toolbar opens, move focus to its first control so it is reachable
+   * by keyboard without tabbing through the whole host page restore focus to
+   * wherever it was when the toolbar closes.
+   */
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    const frame = requestAnimationFrame(() => {
+      const [firstFocusable] = getFocusableElements(container);
+      firstFocusable?.focus();
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (previouslyFocused && typeof previouslyFocused.focus === "function") {
+        previouslyFocused.focus();
+      }
+    };
+  }, [visible]);
+
+  /*
+   * Keyboard behaviour for the open toolbar: Escape dismisses it, Tab/Shift+Tab
+   * are trapped so focus cycles within the toolbar instead of escaping into the
+   * host page. The listener runs in the capture phase so it still fires for keys
+   * pressed inside the note textarea, which stops key propagation of its own.
+   */
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!visible || !container) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusable = getFocusableElements(container);
+      if (focusable.length === 0) {
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = (container.getRootNode() as ShadowRoot).activeElement;
+
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    container.addEventListener("keydown", handleKeyDown, true);
+    return () => container.removeEventListener("keydown", handleKeyDown, true);
+  }, [visible, onClose]);
 
   if (!visible) {
     if (showNote) {
@@ -125,6 +216,7 @@ const Toolbar = ({
   return (
     <div
       id="toolbarComponent"
+      ref={containerRef}
       style={{
         position: "fixed",
         left: x,
@@ -144,7 +236,7 @@ const Toolbar = ({
 
       {!showNote && (
         <span id="actions">
-          <div className="toolbarContainer">
+          <div className="toolbarContainer" role="toolbar" aria-label="Highlight actions" aria-orientation="horizontal">
             {canHighlight && (
               <Tooltip text="Highlight" position="top">
                 <Button
@@ -152,6 +244,7 @@ const Toolbar = ({
                   iconOnly
                   type="tonal"
                   size="md"
+                  ariaLabel="Highlight"
                 >
                   <Icon name="marker" size={16} />
                 </Button>
@@ -163,6 +256,9 @@ const Toolbar = ({
                 iconOnly
                 type="tonal"
                 size="md"
+                ariaLabel="Change color"
+                ariaHasPopup
+                ariaExpanded={paletteState.show}
                 onClick={() => setPaletteState({ ...paletteState, show: !paletteState.show })}
               >
                 <Icon name="palette" size={16} />
@@ -170,14 +266,22 @@ const Toolbar = ({
             </Tooltip>
 
             <Tooltip text="Add Note" position="top">
-              <Button iconOnly type="tonal" size="md" onClick={handleAddNote}>
+              <Button
+                iconOnly
+                type="tonal"
+                size="md"
+                ariaLabel="Add note"
+                ariaHasPopup
+                ariaExpanded={showNote}
+                onClick={handleAddNote}
+              >
                 <Icon name="comment-lines" size={16} />
               </Button>
             </Tooltip>
 
             {canDelete && (
               <Tooltip text="Delete" position="top">
-                <Button iconOnly onClick={onDelete} type="tonal" size="md">
+                <Button iconOnly onClick={onDelete} type="tonal" size="md" ariaLabel="Delete">
                   <Icon name="delete" size={16} />
                 </Button>
               </Tooltip>

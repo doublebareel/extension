@@ -187,8 +187,11 @@ const handleReposition = (renderToolbar: RenderToolbarCallback) => {
   renderToolbar(position.x, position.y, position.highlightId, position.canHighlight);
 };
 
-export const setupHighlighter = (renderToolbar: RenderToolbarCallback, hideToolbar: HideToolbarCallback) => {
-  document.addEventListener("mouseup", (event) => {
+export const setupHighlighter = (
+  renderToolbar: RenderToolbarCallback,
+  hideToolbar: HideToolbarCallback,
+): (() => void) => {
+  const handleMouseUp = (event: MouseEvent) => {
     // Clicks inside our own toolbar/note must not be treated as the page losing
     // its selection, otherwise interacting with the note hides the toolbar.
     if (isEventFromExtension(event)) {
@@ -200,15 +203,30 @@ export const setupHighlighter = (renderToolbar: RenderToolbarCallback, hideToolb
     if (selection && selection.rangeCount !== 0 && selection.toString().trim() !== "") {
       lastRange = selection.getRangeAt(0).cloneRange();
     }
-  });
+  };
 
-  document.addEventListener(
-    "scroll",
-    () => {
+  let scrollFrame: number | null = null;
+  const handleScroll = () => {
+    if (scrollFrame !== null) {
+      return;
+    }
+    scrollFrame = requestAnimationFrame(() => {
+      scrollFrame = null;
       handleReposition(renderToolbar);
-    },
-    { capture: true, passive: true },
-  );
+    });
+  };
+
+  document.addEventListener("mouseup", handleMouseUp);
+  document.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+
+  return () => {
+    document.removeEventListener("mouseup", handleMouseUp);
+    document.removeEventListener("scroll", handleScroll, { capture: true });
+    if (scrollFrame !== null) {
+      cancelAnimationFrame(scrollFrame);
+      scrollFrame = null;
+    }
+  };
 };
 
 const getTextNodesInRange = (range: Range): Array<{ node: Text; startOffset: number; endOffset: number }> => {

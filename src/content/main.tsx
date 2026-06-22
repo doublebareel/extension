@@ -103,6 +103,11 @@ const HighlighterRoot = () => {
     toolbar.hide();
   };
 
+  const onClose = () => {
+    clearSelectionState();
+    toolbar.hide();
+  };
+
   const onEditNote = (note: string) => {
     const id = viewer.viewerState.highlightId;
     if (!id) {
@@ -130,6 +135,7 @@ const HighlighterRoot = () => {
         onDelete={onDelete}
         onAddNote={onAddNote}
         onSaveNote={onSaveNote}
+        onClose={onClose}
       />
       <NoteViewer
         visible={viewer.viewerState.visible}

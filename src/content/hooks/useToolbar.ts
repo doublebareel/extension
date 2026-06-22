@@ -32,7 +32,7 @@ export default function useToolbar({ onBeforeShow }: UseToolbarArgs) {
       setToolbarState({ visible: true, x, y, highlightId, canHighlight });
     };
 
-    setupHighlighter(renderToolbar, hide);
+    return setupHighlighter(renderToolbar, hide);
   }, [onBeforeShow, hide]);
 
   return { toolbarState, hide };

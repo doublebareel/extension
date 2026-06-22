@@ -1,11 +1,3 @@
-// Button — two palettes (primary = dark, secondary = light) and three types.
-// Only the neutral palette is wired up for now; coloured palettes (success /
-// warning / error) wait until those tokens exist.
-//
-//   default — solid filled background
-//   outline — border, no background until hovered
-//   tonal   — no border, no background until hovered
-
 .button {
   display: inline-flex;
   align-items: center;
@@ -22,12 +14,16 @@
     transform: translateY(1px);
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--color-neutral-900);
+    outline-offset: 1px;
+  }
+
   &:disabled {
     opacity: 0.4;
     pointer-events: none;
   }
 
-  // Sizes
   &--sm {
     padding: 0.25rem 0.625rem;
     font: var(--body-xs-semibold);
@@ -58,16 +54,13 @@
     }
   }
 
-  // ---- Primary (dark) ----
   &--primary {
     &.button--default {
-      // background: var(--color-neutral-900);
       background: var(--temp-purple);
       color: var(--color-neutral-0);
 
       &:hover {
         background: var(--temp-purple-secondary);
-        // background: var(--color-neutral-800);
       }
     }
 
@@ -90,7 +83,6 @@
     }
   }
 
-  // ---- Secondary (light) ----
   &--secondary {
     &.button--default {
       background: var(--color-neutral-200);
